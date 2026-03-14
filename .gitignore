@@ -1,0 +1,31 @@
+notepad .gitignore
+```
+
+Notepad opens and asks "Create new file?" → click **Yes**
+
+Paste this content:
+```
+# Java / Spring Boot
+target/
+*.class
+*.jar
+.mvn/
+
+# Angular
+node_modules/
+dist/
+.angular/
+
+# SECRETS - NEVER commit
+.env
+.env.local
+*.env
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
