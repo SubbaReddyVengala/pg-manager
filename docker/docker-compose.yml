@@ -1,0 +1,25 @@
+# docker/docker-compose.yml
+# LOCAL DEVELOPMENT ONLY - not used in production
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: pg_manager_db
+    environment:
+      POSTGRES_DB: pgmanager
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./init-schemas.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d pgmanager"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pg_data:
