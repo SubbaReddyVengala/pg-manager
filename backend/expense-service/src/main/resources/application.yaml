@@ -1,0 +1,23 @@
+server:
+  port: 8086
+
+spring:
+  application:
+    name: expense-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/pgmanager?currentSchema=expense_schema
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate.ddl-auto: validate
+    show-sql: false
+    properties.hibernate.default_schema: expense_schema
+  flyway:
+    schemas: expense_schema
+    locations: classpath:db/migration
+
+jwt:
+  secret: dev-secret-change-in-prod-must-be-32-chars-min
+  expiration: 900000          # 15 minutes
+  refresh-expiration: 604800000  # 7 days

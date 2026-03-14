@@ -1,0 +1,23 @@
+server:
+  port: 8087
+
+spring:
+  application:
+    name: notification-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/pgmanager?currentSchema=notification_schema
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate.ddl-auto: validate
+    show-sql: false
+    properties.hibernate.default_schema: notification_schema
+  flyway:
+    schemas: notification_schema
+    locations: classpath:db/migration
+
+jwt:
+  secret: dev-secret-change-in-prod-must-be-32-chars-min
+  expiration: 900000          # 15 minutes
+  refresh-expiration: 604800000  # 7 days
