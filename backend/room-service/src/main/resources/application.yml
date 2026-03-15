@@ -1,0 +1,23 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: room-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/pgmanager?currentSchema=room_schema
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        default_schema: room_schema
+  flyway:
+    enabled: true
+    schemas: room_schema
+    locations: classpath:db/migration
+    default-schema: room_schema
