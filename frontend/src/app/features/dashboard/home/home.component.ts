@@ -1,107 +1,101 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
+import { RouterLink } from '@angular/router';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { AuthService } from '../../../core/services/auth.service';
+import { RoomService } from '../../../core/services/room.service';
+import { RoomStats } from '../../../shared/models/room.models';
 
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [CommonModule, MatCardModule, MatIconModule],
+  imports: [CommonModule, MatIconModule, RouterLink, MatProgressSpinnerModule],
   template: `
-    <div class="home-container">
-
-      <!-- Welcome Banner -->
-      <div class="welcome-banner">
-        <div class="welcome-text">
+    <div class="home">
+      <div class="welcome">
+        <div>
           <h2>Good day, {{ userName }}! 🏠</h2>
-          <p>Welcome to your PG Management Dashboard.</p>
+          <p>Welcome to your PG Management Dashboard</p>
         </div>
-        <div class="welcome-badge">{{ userRole }}</div>
+        <div class="role-badge">{{ userRole }}</div>
       </div>
-
-      <!-- Stat Cards -->
-      <div class="stats-grid">
-        <mat-card class="stat-card" *ngFor="let stat of stats">
-          <mat-card-content>
-            <div class="stat-icon" [style.background]="stat.color">
-              <mat-icon>{{ stat.icon }}</mat-icon>
-            </div>
-            <div class="stat-info">
-              <div class="stat-value">--</div>
-              <div class="stat-label">{{ stat.label }}</div>
-            </div>
-          </mat-card-content>
-        </mat-card>
+      <div class="loading-center" *ngIf="statsLoading">
+        <mat-spinner diameter="32"></mat-spinner>
       </div>
-
-      <!-- Coming Soon -->
-      <mat-card class="coming-soon">
-        <mat-card-content>
-          <mat-icon>construction</mat-icon>
-          <h3>Rooms, Tenants, and Payments coming in Phase 2</h3>
-          <p>Your auth service is live and working. Next phase adds room management.</p>
-        </mat-card-content>
-      </mat-card>
-
+      <div class="stats-grid" *ngIf="!statsLoading">
+        <div class="stat-card" routerLink="/dashboard/rooms">
+          <div class="stat-icon" style="background:#EFF6FF">
+            <mat-icon style="color:#2563EB">meeting_room</mat-icon>
+          </div>
+          <div><div class="val">{{ stats?.totalRooms ?? 0 }}</div><div class="lbl">Total Rooms</div></div>
+        </div>
+        <div class="stat-card" routerLink="/dashboard/rooms">
+          <div class="stat-icon" style="background:#FFF7ED">
+            <mat-icon style="color:#D35400">door_front</mat-icon>
+          </div>
+          <div><div class="val">{{ stats?.occupied ?? 0 }}</div><div class="lbl">Occupied</div></div>
+        </div>
+        <div class="stat-card" routerLink="/dashboard/rooms">
+          <div class="stat-icon" style="background:#F0FDF4">
+            <mat-icon style="color:#1E8449">check_circle</mat-icon>
+          </div>
+          <div><div class="val">{{ stats?.available ?? 0 }}</div><div class="lbl">Available</div></div>
+        </div>
+        <div class="stat-card" routerLink="/dashboard/rooms">
+          <div class="stat-icon" style="background:#FEF2F2">
+            <mat-icon style="color:#C0392B">build</mat-icon>
+          </div>
+          <div><div class="val">{{ stats?.maintenance ?? 0 }}</div><div class="lbl">Maintenance</div></div>
+        </div>
+        <div class="stat-card occ-card">
+          <div class="occ-val">{{ stats?.occupancyRate ?? 0 }}%</div>
+          <div class="occ-lbl">Occupancy Rate</div>
+          <div class="occ-bar">
+            <div class="occ-fill" [style.width]="(stats?.occupancyRate ?? 0) + '%'"></div>
+          </div>
+        </div>
+      </div>
     </div>
   `,
   styles: [`
-    .home-container { max-width: 1200px; margin: 0 auto; }
-    .welcome-banner {
-      background: linear-gradient(135deg, #1B3A6B, #2471A3);
-      border-radius: 12px; padding: 28px 32px;
-      display: flex; justify-content: space-between; align-items: center;
-      margin-bottom: 24px; color: white;
-    }
-    .welcome-banner h2 { margin: 0 0 4px; font-size: 22px; }
-    .welcome-banner p  { margin: 0; opacity: 0.8; }
-    .welcome-badge {
-      background: rgba(255,255,255,0.2);
-      border-radius: 20px; padding: 6px 16px;
-      font-size: 13px; font-weight: 600;
-    }
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: 16px; margin-bottom: 24px;
-    }
-    .stat-card mat-card-content {
-      display: flex; align-items: center; gap: 16px; padding: 16px;
-    }
-    .stat-icon {
-      width: 52px; height: 52px; border-radius: 12px;
-      display: flex; align-items: center; justify-content: center;
-    }
-    .stat-icon mat-icon { color: white; }
-    .stat-value { font-size: 28px; font-weight: 700; color: #1B3A6B; }
-    .stat-label { font-size: 13px; color: #888; }
-    .coming-soon mat-card-content {
-      text-align: center; padding: 40px;
-    }
-    .coming-soon mat-icon { font-size: 48px; width: 48px; height: 48px; color: #2471A3; }
-    .coming-soon h3 { margin: 12px 0 8px; color: #1B3A6B; }
-    .coming-soon p  { color: #888; margin: 0; }
-    @media (max-width: 600px) {
-      .welcome-banner { flex-direction: column; gap: 16px; text-align: center; padding: 20px; }
-    }
+    .home { max-width:1200px; margin:0 auto; }
+    .loading-center { display:flex; justify-content:center; padding:40px; }
+    .welcome { background:linear-gradient(135deg,#1B3A6B,#2471A3); border-radius:12px;
+      padding:28px 32px; display:flex; justify-content:space-between; align-items:center;
+      margin-bottom:24px; color:white; }
+    .welcome h2 { margin:0 0 4px; font-size:22px; font-weight:700; }
+    .welcome p  { margin:0; opacity:0.8; font-size:14px; }
+    .role-badge { background:rgba(255,255,255,0.2); border-radius:20px;
+      padding:6px 16px; font-size:13px; font-weight:600; }
+    .stats-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:16px; }
+    .stat-card { background:#fff; border-radius:12px; padding:20px; display:flex;
+      align-items:center; gap:16px; box-shadow:0 1px 3px rgba(0,0,0,0.08);
+      cursor:pointer; transition:box-shadow 0.2s; }
+    .stat-card:hover { box-shadow:0 4px 12px rgba(0,0,0,0.12); }
+    .stat-icon { width:52px; height:52px; border-radius:12px; display:flex;
+      align-items:center; justify-content:center; flex-shrink:0; }
+    .val { font-size:28px; font-weight:700; color:#111827; }
+    .lbl { font-size:13px; color:#6B7280; margin-top:2px; }
+    .occ-card { flex-direction:column; align-items:flex-start; gap:8px; }
+    .occ-val { font-size:32px; font-weight:800; color:#1B3A6B; }
+    .occ-lbl { font-size:13px; color:#6B7280; }
+    .occ-bar { width:100%; height:8px; background:#E5E7EB; border-radius:4px; overflow:hidden; }
+    .occ-fill { height:100%; background:linear-gradient(90deg,#2471A3,#1B3A6B);
+      border-radius:4px; transition:width 0.8s ease; }
+    @media (max-width:600px) { .welcome { flex-direction:column; gap:12px; padding:20px; text-align:center; } }
   `]
 })
 export class HomeComponent implements OnInit {
-  userName = '';
-  userRole = '';
-
-  stats = [
-    { label: 'Total Rooms',    icon: 'meeting_room',  color: '#2471A3' },
-    { label: 'Active Tenants', icon: 'people',        color: '#148F77' },
-    { label: 'Pending Dues',   icon: 'payments',      color: '#D35400' },
-    { label: 'Open Issues',    icon: 'report_problem',color: '#C0392B' },
-  ];
-
-  constructor(private auth: AuthService) {}
-
+  userName = ''; userRole = '';
+  stats: RoomStats | null = null; statsLoading = true;
+  constructor(private auth: AuthService, private roomService: RoomService) {}
   ngOnInit(): void {
     this.userName = this.auth.getUserName();
     this.userRole = this.auth.getUserRole();
+    this.roomService.getStats().subscribe({
+      next:  s  => { this.stats = s; this.statsLoading = false; },
+      error: () => { this.statsLoading = false; }
+    });
   }
 }
