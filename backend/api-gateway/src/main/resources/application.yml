@@ -1,0 +1,44 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      routes:
+        # PUBLIC auth routes - no JWT check
+        - id: auth-public
+          uri: http://localhost:8081
+          predicates:
+            - Path=/api/auth/login,/api/auth/register,/api/auth/refresh
+          filters:
+            - StripPrefix=1
+
+        # SECURED auth routes - JWT required
+        - id: auth-secured
+          uri: http://localhost:8081
+          predicates:
+            - Path=/api/auth/**
+          filters:
+            - StripPrefix=1
+            - JwtValidation
+
+        # Room, Tenant, Payment, etc. - add as you build each phase
+        - id: room-service
+          uri: http://localhost:8082
+          predicates:
+            - Path=/api/rooms/**
+          filters:
+            - StripPrefix=1
+            - JwtValidation
+
+jwt:
+  secret: pgmanager-dev-secret-subbu-2026-min-32-chars
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+

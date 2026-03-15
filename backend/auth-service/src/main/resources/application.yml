@@ -1,0 +1,28 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: auth-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/pgmanager?currentSchema=auth_schema
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        default_schema: auth_schema
+  flyway:
+    enabled: true
+    schemas: auth_schema
+    locations: classpath:db/migration
+    default-schema: auth_schema
+
+jwt:
+  secret: pgmanager-dev-secret-subbu-2026-min-32-chars
+  expiration: 900000
+  refresh-expiration: 604800000
