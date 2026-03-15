@@ -155,17 +155,31 @@ export class LoginComponent {
   }
 
   onSubmit(): void {
-    if (this.form.invalid) { this.form.markAllAsTouched(); return; }
-    this.loading = true;
-    this.errorMessage = '';
-
-    const request: LoginRequest = this.form.value;
-    this.auth.login(request).subscribe({
-      next: () => this.router.navigate(['/dashboard']),
-      error: (err) => {
-        this.errorMessage = err.error?.message ?? 'Login failed. Please try again.';
-        this.loading = false;
-      }
-    });
+  if (this.form.invalid) {
+    this.form.markAllAsTouched();
+    return;
   }
+
+  this.loading = true;
+  this.errorMessage = '';
+
+  const request: LoginRequest = this.form.value;
+
+  this.auth.login(request).subscribe({
+    next: () => {
+      this.loading = false;
+      this.router.navigate(['/dashboard']);
+    },
+    error: (err) => {
+      this.loading = false;  // ← this must always run
+      if (err.status === 400 || err.status === 401) {
+        this.errorMessage = err.error?.message ?? 'Invalid email or password.';
+      } else if (err.status === 0) {
+        this.errorMessage = 'Cannot connect to server. Make sure the backend is running.';
+      } else {
+        this.errorMessage = 'Login failed. Please try again.';
+      }
+    }
+  });
+}
 }

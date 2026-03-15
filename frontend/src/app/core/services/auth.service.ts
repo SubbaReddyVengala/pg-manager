@@ -61,7 +61,9 @@ export class AuthService {
   getUserRole(): string {
     return this.currentUser$.value?.role ?? '';
   }
-
+getCurrentUserEmail(): string {
+  return this.currentUser$.value?.email ?? '';
+}
   // ── Private storage methods ──────────────────────────────
   private saveToStorage(response: AuthResponse): void {
     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(response));

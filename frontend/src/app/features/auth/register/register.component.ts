@@ -134,17 +134,31 @@ export class RegisterComponent {
   }
 
   onSubmit(): void {
-    if (this.form.invalid) { this.form.markAllAsTouched(); return; }
-    this.loading = true;
-    this.errorMessage = '';
-
-    const request: RegisterRequest = this.form.value;
-    this.auth.register(request).subscribe({
-      next: () => this.router.navigate(['/dashboard']),
-      error: (err) => {
-        this.errorMessage = err.error?.message ?? 'Registration failed. Please try again.';
-        this.loading = false;
-      }
-    });
+  if (this.form.invalid) {
+    this.form.markAllAsTouched();
+    return;
   }
+
+  this.loading = true;
+  this.errorMessage = '';
+
+  const request: RegisterRequest = this.form.value;
+
+  this.auth.register(request).subscribe({
+    next: () => {
+      this.loading = false;
+      this.router.navigate(['/dashboard']);
+    },
+    error: (err) => {
+      this.loading = false;  // ← must always run
+      if (err.status === 400) {
+        this.errorMessage = err.error?.message ?? 'Registration failed.';
+      } else if (err.status === 0) {
+        this.errorMessage = 'Cannot connect to server. Make sure the backend is running.';
+      } else {
+        this.errorMessage = 'Registration failed. Please try again.';
+      }
+    }
+  });
+}
 }
