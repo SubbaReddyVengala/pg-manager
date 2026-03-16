@@ -1,0 +1,28 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: tenant-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/pgmanager?currentSchema=tenant_schema
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        default_schema: tenant_schema
+  flyway:
+    enabled: true
+    schemas: tenant_schema
+    locations: classpath:db/migration
+    default-schema: tenant_schema
+
+# URL for room-service -- used by RoomServiceClient
+room-service:
+  url: http://localhost:8082
+

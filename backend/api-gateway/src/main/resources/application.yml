@@ -32,6 +32,15 @@ spring:
           filters:
             - StripPrefix=1
             - JwtValidation
+            
+        - id: tenant-service
+          uri: http://localhost:8083
+          predicates:
+            - Path=/api/tenants/**
+          filters:
+            - StripPrefix=1
+            - JwtValidation
+
 
 jwt:
   secret: pgmanager-dev-secret-subbu-2026-min-32-chars
