@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
@@ -89,13 +89,13 @@ import { RoomStats } from '../../../shared/models/room.models';
 export class HomeComponent implements OnInit {
   userName = ''; userRole = '';
   stats: RoomStats | null = null; statsLoading = true;
-  constructor(private auth: AuthService, private roomService: RoomService) {}
+  constructor(private auth: AuthService, private roomService: RoomService,private cdr: ChangeDetectorRef) {}
   ngOnInit(): void {
     this.userName = this.auth.getUserName();
     this.userRole = this.auth.getUserRole();
     this.roomService.getStats().subscribe({
-      next:  s  => { this.stats = s; this.statsLoading = false; },
-      error: () => { this.statsLoading = false; }
+      next:  s  => { this.stats = s; this.statsLoading = false;  this.cdr.detectChanges();},
+      error: () => { this.statsLoading = false; this.cdr.detectChanges(); }
     });
   }
 }

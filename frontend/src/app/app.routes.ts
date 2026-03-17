@@ -19,7 +19,12 @@ export const routes: Routes = [
       .then(m => m.DashboardComponent),
     children: [
       { path: '', loadComponent: () => import('./features/dashboard/home/home.component').then(m => m.HomeComponent) },
-      { path: 'rooms',loadComponent: () => import('./features/rooms/rooms.component').then(m => m.RoomsComponent),},
+      { path: 'rooms',loadComponent: () => import('./features/rooms/rooms.component').then(m => m.RoomsComponent)},
+      {path: 'tenants',loadComponent: () =>import('./features/tenants/tenants.component').then(m => m.TenantsComponent)},
+      {path: 'tenants/:id',loadComponent: () =>import('./features/tenants/tenant-detail/tenant-detail.component')
+      .then(m => m.TenantDetailComponent)
+},
+
     ]
   },
 

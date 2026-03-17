@@ -243,8 +243,10 @@ export class RoomsComponent implements OnInit, OnDestroy {
   loadRooms(): void {
     this.loading = true;
     this.roomService.getAll(this.activeFilter, this.searchTerm).subscribe({
-      next:  r  => { this.rooms = r; this.loading = false; },
-      error: () => { this.loading = false; },
+      next:  r  => { this.rooms = r; this.loading = false; this.cdr.detectChanges();},
+      error: () => { this.loading = false; 
+        this.cdr.detectChanges();
+      },
     });
   }
 
