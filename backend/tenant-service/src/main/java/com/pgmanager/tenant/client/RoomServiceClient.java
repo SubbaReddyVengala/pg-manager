@@ -46,4 +46,13 @@ public class RoomServiceClient {
         private Integer floor;
         private String status;
     }
+    public void incrementOccupancy(Long roomId) {
+        String url = roomServiceUrl + "/rooms/" + roomId + "/occupancy/increment";
+        restTemplate.patchForObject(url, null, String.class);
+    }
+
+    public void decrementOccupancy(Long roomId) {
+        String url = roomServiceUrl + "/rooms/" + roomId + "/occupancy/decrement";
+        restTemplate.patchForObject(url, null, String.class);
+    }
 }

@@ -12,4 +12,6 @@ public interface RoomService {
     List<RoomResponse>  getAvailableRooms();
     RoomResponse        updateStatus(Long id, RoomStatus status);
     RoomStatsResponse   getStats();
+    RoomResponse incrementOccupancy(Long id);
+    RoomResponse decrementOccupancy(Long id);
 }

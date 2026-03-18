@@ -73,5 +73,14 @@ public class RoomController {
         roomService.deleteRoom(id);
         return ResponseEntity.noContent().build();
     }
+    @PatchMapping("/{id}/occupancy/increment")
+    public ResponseEntity<RoomResponse> increment(@PathVariable Long id) {
+        return ResponseEntity.ok(roomService.incrementOccupancy(id));
+    }
+
+    @PatchMapping("/{id}/occupancy/decrement")
+    public ResponseEntity<RoomResponse> decrement(@PathVariable Long id) {
+        return ResponseEntity.ok(roomService.decrementOccupancy(id));
+    }
 }
 

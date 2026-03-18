@@ -33,12 +33,9 @@ public class TenantServiceImpl implements TenantService {
 
         if (req.getRoomId() != null) {
             // Verify room not already occupied
-            tenantRepository.findByRoomIdAndStatus(req.getRoomId(), TenantStatus.ACTIVE)
-                    .ifPresent(t -> { throw new RuntimeException(
-                            "Room already has an active tenant: " + t.getFullName()); });
             roomNumber = roomClient.getRoomNumber(req.getRoomId());
             status = TenantStatus.ACTIVE;
-            roomClient.markOccupied(req.getRoomId());
+            roomClient.incrementOccupancy(req.getRoomId());
         }
 
         Tenant tenant = Tenant.builder()
@@ -142,27 +139,21 @@ public class TenantServiceImpl implements TenantService {
     }
 
     // ── Assign Room to PENDING Tenant ──────────────────────
-    // This is the "Assign Room" button in Screenshot 1
     @Override
     public TenantResponse assignRoom(Long id, AssignRoomRequest req) {
         Tenant t = findById(id);
         if (t.getStatus() != TenantStatus.PENDING) {
             throw new RuntimeException("Only PENDING tenants can be assigned a room.");
         }
-        // Check room not already occupied by another active tenant
-        tenantRepository.findByRoomIdAndStatus(req.getRoomId(), TenantStatus.ACTIVE)
-                .ifPresent(existing -> { throw new RuntimeException(
-                        "Room already occupied by: " + existing.getFullName()); });
-
         String roomNumber = roomClient.getRoomNumber(req.getRoomId());
         t.setRoomId(req.getRoomId());
         t.setRoomNumber(roomNumber);
-        t.setMoveInDate(req.getMoveInDate());
-        t.setMonthlyRent(req.getMonthlyRent());
-        t.setSecurityDeposit(req.getSecurityDeposit());
-        t.setRentDueDay(req.getRentDueDay());
+        if (req.getMoveInDate() != null) t.setMoveInDate(req.getMoveInDate());
+        if (req.getMonthlyRent() != null) t.setMonthlyRent(req.getMonthlyRent());
+        if (req.getSecurityDeposit() != null) t.setSecurityDeposit(req.getSecurityDeposit());
+        if (req.getRentDueDay() != null) t.setRentDueDay(req.getRentDueDay());
         t.setStatus(TenantStatus.ACTIVE);
-        roomClient.markOccupied(req.getRoomId());   // room-service call
+        roomClient.incrementOccupancy(req.getRoomId());
         return toResponse(tenantRepository.save(t));
     }
 
@@ -179,7 +170,7 @@ public class TenantServiceImpl implements TenantService {
         t.setStatus(TenantStatus.INACTIVE);
         t.setRoomId(null);
         // Keep roomNumber for history display
-        roomClient.markAvailable(roomId);           // room-service call
+        roomClient.decrementOccupancy(roomId);          // room-service call
         return toResponse(tenantRepository.save(t));
     }
 

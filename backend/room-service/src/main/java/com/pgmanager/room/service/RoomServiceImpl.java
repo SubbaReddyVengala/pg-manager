@@ -131,4 +131,35 @@ public class RoomServiceImpl implements RoomService {
                 .updatedAt(r.getUpdatedAt())
                 .build();
     }
+    @Override
+    public RoomResponse incrementOccupancy(Long id) {
+        Room room = findById(id);
+        int newOccupancy = room.getOccupancy() + 1;
+        if (newOccupancy > room.getMaxCapacity()) {
+            throw new RuntimeException("Room " + room.getRoomNumber() + " is already full.");
+        }
+        room.setOccupancy(newOccupancy);
+        // Only mark OCCUPIED when full
+        if (newOccupancy >= room.getMaxCapacity()) {
+            room.setStatus(RoomStatus.OCCUPIED);
+        } else {
+            room.setStatus(RoomStatus.AVAILABLE); // partially filled = still available
+        }
+        return toResponse(roomRepository.save(room));
+    }
+
+    @Override
+    public RoomResponse decrementOccupancy(Long id) {
+        Room room = findById(id);
+        int newOccupancy = Math.max(0, room.getOccupancy() - 1);
+        room.setOccupancy(newOccupancy);
+        if (newOccupancy == 0) {
+            room.setStatus(RoomStatus.AVAILABLE);  // completely empty
+        } else if (newOccupancy < room.getMaxCapacity()) {
+            room.setStatus(RoomStatus.AVAILABLE);  // partially filled = still available
+        } else {
+            room.setStatus(RoomStatus.OCCUPIED);   // still full
+        }
+        return toResponse(roomRepository.save(room));
+    }
 }

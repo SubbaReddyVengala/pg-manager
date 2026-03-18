@@ -27,6 +27,7 @@ public class Room {
     @Column(nullable = false)
     private Integer maxCapacity;
 
+    @Column(nullable = false)
     @Builder.Default
     private Integer occupancy = 0;   // current tenants in this room
 

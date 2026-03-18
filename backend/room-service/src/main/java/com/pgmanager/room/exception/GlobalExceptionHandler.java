@@ -27,7 +27,9 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneral(
             Exception e, HttpServletRequest req) {
+        e.printStackTrace(); // 👈 add this to print real error in console
         return ResponseEntity.status(500).body(
-                new ErrorResponse(500, "An unexpected error occurred", req.getRequestURI()));
+                new ErrorResponse(500, e.getMessage(), req.getRequestURI()));
     }
+
 }
