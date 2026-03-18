@@ -39,11 +39,11 @@ export class TenantService {
 
   // ── Assign Room ───────────────────────────────────────────────────────
   assignRoom(tenantId: number, roomId: number): Observable<TenantDetailResponse> {
-    const params = new HttpParams().set('roomId', roomId);
-    return this.http.patch<TenantDetailResponse>(
-      `${this.base}/${tenantId}/assign-room`, null, { params }
-    );
-  }
+  return this.http.post<TenantDetailResponse>(
+    `${this.base}/${tenantId}/assign-room`,
+    { roomId: roomId }
+  );
+}
 
   // ── Move Out ──────────────────────────────────────────────────────────
  moveOut(tenantId: number): Observable<TenantDetailResponse> {
