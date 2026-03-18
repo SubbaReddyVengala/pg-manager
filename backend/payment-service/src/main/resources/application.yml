@@ -10,14 +10,20 @@ spring:
     password: postgres
     driver-class-name: org.postgresql.Driver
   jpa:
-    hibernate.ddl-auto: validate
+    hibernate:
+      ddl-auto: validate
     show-sql: false
-    properties.hibernate.default_schema: payment_schema
+    properties:
+      hibernate:
+        default_schema: payment_schema
   flyway:
-    schemas: payment_schema    # Change per service
+    enabled: true
+    schemas: payment_schema
     locations: classpath:db/migration
+    default-schema: payment_schema
 
-jwt:
-  secret: dev-secret-change-in-prod-must-be-32-chars-min
-  expiration: 900000          # 15 minutes
-  refresh-expiration: 604800000  # 7 days
+tenant-service:
+  url: http://localhost:8083
+
+# Scheduler timezone — IST
+spring.task.scheduling.pool.size: 2

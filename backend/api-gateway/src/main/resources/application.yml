@@ -41,6 +41,13 @@ spring:
             - StripPrefix=1
             - JwtValidation
 
+        - id: payment-service
+          uri: http://localhost:8084
+          predicates:
+            - Path=/api/payments/**
+          filters:
+            - StripPrefix=1
+
 
 jwt:
   secret: pgmanager-dev-secret-subbu-2026-min-32-chars

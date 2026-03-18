@@ -214,6 +214,7 @@ public class TenantServiceImpl implements TenantService {
                 .email(t.getEmail())
                 .phone(t.getPhone())
                 .roomNumber(t.getRoomNumber())
+                .roomId(t.getRoomId())
                 .moveInDate(t.getMoveInDate())
                 .monthlyRent(t.getMonthlyRent())
                 .securityDeposit(t.getSecurityDeposit())

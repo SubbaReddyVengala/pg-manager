@@ -14,6 +14,7 @@ public class TenantResponse {
     private String        email;
     private String        phone;
     private String        roomNumber;      // "--" if PENDING
+    private Long          roomId;
     private LocalDate     moveInDate;
     private BigDecimal    monthlyRent;
     private BigDecimal    securityDeposit;
