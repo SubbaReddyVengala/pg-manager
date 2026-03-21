@@ -1,4 +1,5 @@
 package com.pgmanager.room.service;
+import com.pgmanager.room.client.TenantServiceClient;
 import com.pgmanager.room.dto.*;
 import com.pgmanager.room.entity.Room;
 import com.pgmanager.room.enums.RoomStatus;
@@ -7,12 +8,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.stream.Collectors;
-
 @Service @RequiredArgsConstructor
 public class RoomServiceImpl implements RoomService {
 
     private final RoomRepository roomRepository;
-
+    private final TenantServiceClient tenantClient;
     @Override
     public RoomResponse createRoom(RoomRequest req) {
         if (roomRepository.existsByRoomNumber(req.getRoomNumber())) {
@@ -75,7 +75,13 @@ public class RoomServiceImpl implements RoomService {
     public void deleteRoom(Long id) {
         Room room = findById(id);
         if (room.getStatus() == RoomStatus.OCCUPIED) {
-            throw new RuntimeException("Cannot delete an OCCUPIED room. Move out tenant first.");
+            throw new RuntimeException("Cannot delete an OCCUPIED room.");
+        }
+        if (room.getOccupancy() > 0) {
+            throw new RuntimeException("Cannot delete room — tenants still assigned.");
+        }
+        if (tenantClient.hasActiveTenantsByRoomNumber(room.getRoomNumber())) {
+            throw new RuntimeException("Cannot delete Room " + room.getRoomNumber() + " — active tenants are assigned to it.");
         }
         roomRepository.delete(room);
     }

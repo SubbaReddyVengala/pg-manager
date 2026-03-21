@@ -21,3 +21,5 @@ spring:
     schemas: room_schema
     locations: classpath:db/migration
     default-schema: room_schema
+tenant-service:
+    url: http://localhost:8083

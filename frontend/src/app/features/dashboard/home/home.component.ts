@@ -6,6 +6,8 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { AuthService } from '../../../core/services/auth.service';
 import { RoomService } from '../../../core/services/room.service';
 import { RoomStats } from '../../../shared/models/room.models';
+import { PaymentService } from '../../payments/payment.service';
+import { PaymentStats } from '../../../shared/models/payment.models';
 
 @Component({
   selector: 'app-home',
@@ -48,6 +50,29 @@ import { RoomStats } from '../../../shared/models/room.models';
           </div>
           <div><div class="val">{{ stats?.maintenance ?? 0 }}</div><div class="lbl">Maintenance</div></div>
         </div>
+
+        <!-- Collected card -->
+        <div class="stat-card" routerLink="/dashboard/payments">
+          <div class="stat-icon" style="background:#E8F5E9">
+            <mat-icon style="color:#2E7D32">payments</mat-icon>
+          </div>
+          <div>
+            <div class="val">₹{{ paymentStats?.collected ?? 0 | number }}</div>
+            <div class="lbl">Collected</div>
+          </div>
+        </div>
+
+        <!-- Outstanding card -->
+        <div class="stat-card" routerLink="/dashboard/payments">
+          <div class="stat-icon" style="background:#FFEBEE">
+            <mat-icon style="color:#C62828">money_off</mat-icon>
+          </div>
+          <div>
+            <div class="val">₹{{ paymentStats?.outstanding ?? 0 | number }}</div>
+            <div class="lbl">Outstanding</div>
+          </div>
+        </div>
+
         <div class="stat-card occ-card">
           <div class="occ-val">{{ stats?.occupancyRate ?? 0 }}%</div>
           <div class="occ-lbl">Occupancy Rate</div>
@@ -88,14 +113,33 @@ import { RoomStats } from '../../../shared/models/room.models';
 })
 export class HomeComponent implements OnInit {
   userName = ''; userRole = '';
-  stats: RoomStats | null = null; statsLoading = true;
-  constructor(private auth: AuthService, private roomService: RoomService,private cdr: ChangeDetectorRef) {}
+  stats: RoomStats | null = null;
+  paymentStats: PaymentStats | null = null;
+  statsLoading = true;
+
+  constructor(
+    private auth: AuthService,
+    private roomService: RoomService,
+    private paymentService: PaymentService,
+    private cdr: ChangeDetectorRef
+  ) {}
+
   ngOnInit(): void {
     this.userName = this.auth.getUserName();
     this.userRole = this.auth.getUserRole();
+
     this.roomService.getStats().subscribe({
-      next:  s  => { this.stats = s; this.statsLoading = false;  this.cdr.detectChanges();},
+      next:  s  => { this.stats = s; this.statsLoading = false; this.cdr.detectChanges(); },
       error: () => { this.statsLoading = false; this.cdr.detectChanges(); }
+    });
+
+    const monthStr = new Date(
+      new Date().getFullYear(), new Date().getMonth(), 1
+    ).toISOString().split('T')[0];
+
+    this.paymentService.getStats(monthStr).subscribe({
+      next:  s  => { this.paymentStats = s; this.cdr.detectChanges(); },
+      error: () => {}
     });
   }
 }
