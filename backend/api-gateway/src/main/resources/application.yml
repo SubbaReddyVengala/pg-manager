@@ -47,6 +47,14 @@ spring:
             - Path=/api/payments/**
           filters:
             - StripPrefix=1
+            
+        - id: report-service
+          uri: http://localhost:8084
+          predicates:
+            - Path=/api/reports/**
+          filters:
+            - StripPrefix=1
+
 
 
 jwt:

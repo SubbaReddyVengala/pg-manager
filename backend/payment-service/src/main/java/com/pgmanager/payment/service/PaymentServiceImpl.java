@@ -230,7 +230,7 @@ public class PaymentServiceImpl implements PaymentService {
         }
     }
 
-    private PaymentResponse toResponse(RentPayment p) {
+    PaymentResponse toResponse(RentPayment p) {
         boolean isOverdue = p.getStatus() == PaymentStatus.OVERDUE;
         return PaymentResponse.builder()
                 .id(p.getId())
