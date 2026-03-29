@@ -25,4 +25,6 @@ spring:
 # URL for room-service -- used by RoomServiceClient
 room-service:
   url: http://localhost:8082
+payment-service:
+  url: http://localhost:8084
 

@@ -5,7 +5,12 @@ import com.pgmanager.tenant.entity.Tenant;
 import com.pgmanager.tenant.enums.TenantStatus;
 import com.pgmanager.tenant.repository.TenantRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.Period;
@@ -18,7 +23,10 @@ public class TenantServiceImpl implements TenantService {
 
     private final TenantRepository  tenantRepository;
     private final RoomServiceClient roomClient;
+    private final RestTemplate restTemplate;
 
+    @Value("${payment-service.url}")
+    private String paymentServiceUrl;
     // ── Create Tenant ──────────────────────────────────────
     // If roomId provided: ACTIVE + call room-service OCCUPIED
     // If no roomId: PENDING (assign room later)
@@ -165,12 +173,52 @@ public class TenantServiceImpl implements TenantService {
         if (t.getStatus() != TenantStatus.ACTIVE) {
             throw new RuntimeException("Only ACTIVE tenants can move out.");
         }
+
+        // Check outstanding dues via payment-service
+        // For now check using a simple REST call
+        try {
+            String url = paymentServiceUrl + "/payments/tenant/" + id;
+            List<?> payments = restTemplate.exchange(
+                    url, HttpMethod.GET, null,
+                    new ParameterizedTypeReference<List<?>>() {}
+            ).getBody();
+
+            if (payments != null) {
+                boolean hasOutstanding = payments.stream().anyMatch(p -> {
+                    if (p instanceof java.util.Map) {
+                        java.util.Map<?,?> map = (java.util.Map<?,?>) p;
+                        Object status = map.get("status");
+                        return "OVERDUE".equals(status) ||
+                                "PENDING".equals(status) ||
+                                "PARTIAL".equals(status);
+                    }
+                    return false;
+                });
+                if (hasOutstanding) {
+                    throw new RuntimeException(
+                            "Cannot move out — tenant has outstanding dues. Clear all payments first.");
+                }
+            }
+        } catch (RuntimeException e) {
+            throw e; // rethrow our validation exception
+        } catch (Exception e) {
+            // payment-service down — allow move out with warning
+            System.out.println("Warning: Could not verify payments for tenant: " + id);
+        }
+
         Long roomId = t.getRoomId();
-        t.setMoveOutDate(req.getMoveOutDate());
+        t.setMoveOutDate(req.getMoveOutDate() != null ? req.getMoveOutDate() : LocalDate.now());
         t.setStatus(TenantStatus.INACTIVE);
         t.setRoomId(null);
-        // Keep roomNumber for history display
-        roomClient.decrementOccupancy(roomId);          // room-service call
+
+        if (roomId != null) {
+            try {
+                roomClient.decrementOccupancy(roomId);
+            } catch (Exception e) {
+                System.out.println("Warning: Could not update room occupancy for roomId: " + roomId);
+            }
+        }
+
         return toResponse(tenantRepository.save(t));
     }
 
