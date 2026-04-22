@@ -18,6 +18,9 @@ public class RoomServiceImpl implements RoomService {
         if (roomRepository.existsByRoomNumber(req.getRoomNumber())) {
             throw new RuntimeException("Room number already exists: " + req.getRoomNumber());
         }
+        if (req.getStatus() == RoomStatus.OCCUPIED) {
+            throw new RuntimeException("A new room cannot be created with OCCUPIED status.");
+        }
         Room room = Room.builder()
                 .roomNumber(req.getRoomNumber())
                 .floor(req.getFloor())
@@ -61,6 +64,22 @@ public class RoomServiceImpl implements RoomService {
                 roomRepository.existsByRoomNumber(req.getRoomNumber())) {
             throw new RuntimeException("Room number already exists: " + req.getRoomNumber());
         }
+
+        // Validation: Cannot manually set to OCCUPIED if not already occupied
+        if (req.getStatus() == RoomStatus.OCCUPIED && room.getStatus() != RoomStatus.OCCUPIED) {
+            throw new RuntimeException("Room status cannot be manually set to OCCUPIED. It is automatically set when tenants are assigned.");
+        }
+
+        // Validation: Cannot change status from OCCUPIED if tenants are still present
+        if (room.getStatus() == RoomStatus.OCCUPIED && req.getStatus() != RoomStatus.OCCUPIED && room.getOccupancy() > 0) {
+            throw new RuntimeException("Cannot change status from OCCUPIED while tenants are still in the room.");
+        }
+        
+        // Validation: Cannot change status to MAINTENANCE if tenants are still present
+        if (req.getStatus() == RoomStatus.MAINTENANCE && room.getOccupancy() > 0) {
+            throw new RuntimeException("Cannot put room under MAINTENANCE while tenants are still present.");
+        }
+
         room.setRoomNumber(req.getRoomNumber());
         room.setFloor(req.getFloor());
         room.setRoomType(req.getRoomType());
@@ -106,12 +125,16 @@ public class RoomServiceImpl implements RoomService {
         long occupied    = roomRepository.countByStatus(RoomStatus.OCCUPIED);
         long available   = roomRepository.countByStatus(RoomStatus.AVAILABLE);
         long maintenance = roomRepository.countByStatus(RoomStatus.MAINTENANCE);
+        long floors      = roomRepository.countDistinctFloor();
+        
         double rate      = total > 0 ? Math.round((occupied * 100.0 / total) * 10.0) / 10.0 : 0.0;
+        
         return RoomStatsResponse.builder()
                 .totalRooms(total)
                 .occupied(occupied)
                 .available(available)
                 .maintenance(maintenance)
+                .floorCount(floors)
                 .occupancyRate(rate)
                 .build();
     }
@@ -167,5 +190,10 @@ public class RoomServiceImpl implements RoomService {
             room.setStatus(RoomStatus.OCCUPIED);   // still full
         }
         return toResponse(roomRepository.save(room));
+    }
+
+    @Override
+    public boolean existsByRoomNumber(String roomNumber) {
+        return roomRepository.existsByRoomNumber(roomNumber);
     }
 }

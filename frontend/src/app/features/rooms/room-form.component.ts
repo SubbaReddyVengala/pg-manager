@@ -77,8 +77,9 @@ import { RoomService } from '../../core/services/room.service';
           <mat-label>Status</mat-label>
           <mat-select formControlName="status">
             <mat-option value="AVAILABLE">AVAILABLE</mat-option>
-            <mat-option value="OCCUPIED">OCCUPIED</mat-option>
             <mat-option value="MAINTENANCE">MAINTENANCE</mat-option>
+            <!-- Show OCCUPIED only if it's already occupied (Edit Mode) -->
+            <mat-option value="OCCUPIED" *ngIf="room?.status === 'OCCUPIED'">OCCUPIED</mat-option>
           </mat-select>
           <mat-error *ngIf="f['status'].hasError('required')">Required</mat-error>
         </mat-form-field>

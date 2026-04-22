@@ -10,6 +10,7 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PaymentService } from '../payment.service';
 import { PaymentRequest, PaymentMode } from '../../../shared/models/payment.models';
 import { TenantResponse } from '../../../shared/models/tenant.models';
@@ -22,7 +23,8 @@ import { TenantResponse } from '../../../shared/models/tenant.models';
     MatFormFieldModule, MatInputModule, MatSelectModule,
     MatButtonModule, MatIconModule,
     MatDatepickerModule, MatNativeDateModule,
-    MatProgressSpinnerModule, MatCheckboxModule
+    MatProgressSpinnerModule, MatCheckboxModule,
+    MatSnackBarModule
   ],
   template: `
   <div class='drawer-overlay' (click)='onClose()'></div>
@@ -106,15 +108,21 @@ import { TenantResponse } from '../../../shared/models/tenant.models';
       </mat-form-field>
 
       <!-- RECEIPT NOTE -->
-      <div class='receipt-note'>
+      <div class='receipt-note' *ngIf='!isAlreadyPaid'>
         <mat-icon>check_circle</mat-icon>
         After saving — PDF receipt will be auto-generated
+      </div>
+
+      <!-- ALREADY PAID WARNING -->
+      <div class='already-paid-msg' *ngIf='isAlreadyPaid'>
+        <mat-icon>warning</mat-icon>
+        <span>Already paid for this month.</span>
       </div>
 
       <!-- ACTIONS -->
       <div class='drawer-actions'>
         <button mat-stroked-button type='button' (click)='onClose()'>Cancel</button>
-        <button mat-flat-button color='primary' type='submit' [disabled]='saving'>
+        <button mat-flat-button color='primary' type='submit' [disabled]='saving || isAlreadyPaid'>
           @if (saving) {
             <mat-spinner diameter='20'></mat-spinner>
           } @else {
@@ -156,6 +164,15 @@ import { TenantResponse } from '../../../shared/models/tenant.models';
       font-size:13px;color:#2E7D32;margin:12px 0;
     }
     .receipt-note mat-icon { font-size:18px;width:18px;height:18px;color:#2E7D32; }
+    
+    .already-paid-msg {
+      display:flex;align-items:center;gap:8px;
+      background:#FFF3E0;border-radius:8px;padding:10px 14px;
+      font-size:13px;color:#E65100;margin:12px 0;
+      border: 1px solid #FFE0B2;
+    }
+    .already-paid-msg mat-icon { font-size:18px;width:18px;height:18px;color:#E65100; }
+
     .drawer-actions {
       display:flex;justify-content:flex-end;gap:12px;
       padding-top:16px;margin-top:8px;border-top:1px solid #eee;
@@ -169,10 +186,12 @@ export class PaymentFormComponent implements OnInit {
 
   private fb             = inject(FormBuilder);
   private paymentService = inject(PaymentService);
+  private snackBar       = inject(MatSnackBar);
 
   tenants:      TenantResponse[] = [];
   saving      = false;
   paymentModes: PaymentMode[] = ['CASH', 'UPI', 'BANK_TRANSFER', 'CHEQUE'];
+  isAlreadyPaid = false;
 
   form = this.fb.group({
     tenantId:      [null as number | null, Validators.required],
@@ -192,12 +211,32 @@ export class PaymentFormComponent implements OnInit {
     // Default payment date to today
     const today = new Date().toISOString().split('T')[0];
     this.form.patchValue({ paymentDate: today });
+
+    // Watch for changes to check payment status
+    this.form.get('tenantId')?.valueChanges.subscribe(() => this.checkStatus());
+    this.form.get('rentMonth')?.valueChanges.subscribe(() => this.checkStatus());
+  }
+
+  private checkStatus() {
+    const tenantId = this.form.get('tenantId')?.value;
+    const rentMonth = this.form.get('rentMonth')?.value;
+    
+    if (tenantId && rentMonth) {
+      const monthStr = new Date(rentMonth as any).toISOString().split('T')[0];
+      this.paymentService.getByTenant(tenantId).subscribe(payments => {
+        const existing = payments.find(p => p.rentMonth === monthStr);
+        this.isAlreadyPaid = existing?.status === 'PAID';
+      });
+    } else {
+      this.isAlreadyPaid = false;
+    }
   }
 
   onTenantChange(tenantId: number) {
     const tenant = this.tenants.find(t => t.id === tenantId);
     if (tenant) {
       this.form.patchValue({ rentAmount: tenant.monthlyRent as any });
+      this.form.get('amountPaid')?.setValue(tenant.monthlyRent as any);
     }
   }
 
@@ -208,7 +247,10 @@ export class PaymentFormComponent implements OnInit {
   }
 
   onSubmit() {
-    if (this.form.invalid) { this.form.markAllAsTouched(); return; }
+    if (this.form.invalid || this.isAlreadyPaid) { 
+      this.form.markAllAsTouched(); 
+      return; 
+    }
     this.saving = true;
     const raw = this.form.getRawValue();
     const req: PaymentRequest = {
@@ -228,7 +270,8 @@ export class PaymentFormComponent implements OnInit {
       next: () => { this.saving = false; this.saved.emit(); },
       error: (err) => {
         this.saving = false;
-        alert(err.error?.message || 'Failed to record payment');
+        const msg = err.error?.message || 'Failed to record payment';
+        this.snackBar.open(msg, 'Close', { duration: 5000 });
       }
     });
   }

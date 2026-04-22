@@ -29,6 +29,12 @@ public class TenantController {
         return ResponseEntity.ok(tenantService.getStats());
     }
 
+    // GET /tenants/room/{roomId}
+    @GetMapping("/room/{roomId}")
+    public ResponseEntity<List<TenantResponse>> getTenantsByRoom(@PathVariable Long roomId) {
+        return ResponseEntity.ok(tenantService.getTenantsByRoom(roomId));
+    }
+
     // GET /tenants/{id}  (detail view - Screenshot 3)
     @GetMapping("/{id}")
     public ResponseEntity<TenantDetailResponse> getById(@PathVariable Long id) {

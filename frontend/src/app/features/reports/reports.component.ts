@@ -1,368 +1,422 @@
-import {
-  Component, OnInit, AfterViewInit,
-  ChangeDetectorRef, inject, ElementRef, ViewChild
-} from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { MatTabsModule } from '@angular/material/tabs';
-import { ReportService } from './report.service';
-import { MonthlyReport, AnnualSummary } from '../../shared/models/report.models';
-import { PaymentResponse } from '../../shared/models/payment.models';
+import { ReportService, DashboardSummary, ProfitTrend, OutstandingDue } from '../../core/services/report.service';
+import { RoomService } from '../../core/services/room.service';
+import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
+import { Subject, takeUntil, forkJoin } from 'rxjs';
+import { BaseChartDirective } from 'ng2-charts';
+import { Chart, registerables, ChartConfiguration, ChartData, ChartType } from 'chart.js';
+
+Chart.register(...registerables);
 
 @Component({
   selector: 'app-reports',
   standalone: true,
   imports: [
-    CommonModule, FormsModule,
-    MatButtonModule, MatIconModule,
-    MatProgressSpinnerModule, MatSnackBarModule,
-    MatTabsModule
+    CommonModule, FormsModule, MatButtonModule, MatIconModule,
+    MatProgressSpinnerModule, MatSnackBarModule, BaseChartDirective,
+    EmptyStateComponent
   ],
   template: `
-  <div class='page'>
+    <div class="reports-container">
+      <!-- TOOLBAR -->
+      <div class="toolbar">
+        <div class="title-section">
+          <h2>Reports & Analytics</h2>
+          <p>Financial & Occupancy Overview</p>
+        </div>
+        <div class="spacer"></div>
+        <div class="toolbar-actions">
+          <select [(ngModel)]="selectedMonth" class="month-picker" (change)="loadData()">
+            <option *ngFor="let m of monthOptions" [value]="m.value">{{ m.label }}</option>
+          </select>
+          <button mat-flat-button class="export-btn pdf" (click)="exportPdf()">
+            <mat-icon>picture_as_pdf</mat-icon> Export PDF
+          </button>
+          <button mat-flat-button class="export-btn excel" (click)="exportExcel()">
+            <mat-icon>table_chart</mat-icon> Export Excel
+          </button>
+        </div>
+      </div>
 
-    <!-- PAGE HEADER -->
-    <div class='page-header'>
-      <div>
-        <h1>Reports</h1>
-        <p class='subtitle'>Monthly income, occupancy & payment analytics</p>
+      <!-- SUMMARY CARDS -->
+      <div class="stats-grid" *ngIf="summary">
+        <div class="stat-card revenue">
+          <div class="card-top">
+            <span class="card-label">REVENUE</span>
+            <mat-icon class="card-mini-icon">payments</mat-icon>
+          </div>
+          <div class="card-value">₹{{ summary.monthlyRevenue / 1000 | number:'1.0-0' }}K</div>
+          <div class="card-trend up">↑ {{ summary.revenueGrowthRate }}%</div>
+        </div>
+
+        <div class="stat-card outstanding">
+          <div class="card-top">
+            <span class="card-label">OUTSTANDING</span>
+            <mat-icon class="card-mini-icon">warning</mat-icon>
+          </div>
+          <div class="card-value">₹{{ summary.outstandingAmount / 1000 | number:'1.1-1' }}K</div>
+          <div class="card-trend down">↓ from last mo</div>
+        </div>
+
+        <div class="stat-card occupancy">
+          <div class="card-top">
+            <span class="card-label">OCCUPANCY</span>
+            <mat-icon class="card-mini-icon">bar_chart</mat-icon>
+          </div>
+          <div class="card-value">{{ summary.occupancyRate }}%</div>
+          <div class="card-trend up">↑ 5%</div>
+        </div>
+
+        <div class="stat-card profit">
+          <div class="card-top">
+            <span class="card-label">NET PROFIT</span>
+            <mat-icon class="card-mini-icon">ads_click</mat-icon>
+          </div>
+          <div class="card-value">₹{{ summary.monthlyProfit / 1000 | number:'1.0-0' }}K</div>
+          <div class="card-subtext">After expenses</div>
+        </div>
+      </div>
+
+      <!-- MAIN CHARTS ROW -->
+      <div class="charts-row" *ngIf="summary">
+        <div class="main-chart-card">
+          <h3>Income vs Expenses — Last 6 Months</h3>
+          <div class="chart-legend">
+             <span class="leg-item"><span class="dot green"></span> Income</span>
+             <span class="leg-item"><span class="dot red"></span> Expenses</span>
+          </div>
+          <div class="chart-container">
+            <canvas baseChart
+              [data]="barChartData"
+              [options]="barChartOptions"
+              [type]="barChartType">
+            </canvas>
+          </div>
+        </div>
+
+        <div class="side-chart-card">
+          <h3>Room Occupancy</h3>
+          <div class="donut-container">
+            <canvas baseChart
+              [data]="doughnutChartData"
+              [options]="doughnutChartOptions"
+              [type]="doughnutChartType">
+            </canvas>
+            <div class="donut-center">
+              <div class="center-val">{{ summary.occupancyRate }}%</div>
+              <div class="center-lbl">OCCUPIED</div>
+            </div>
+          </div>
+          <div class="donut-legend">
+            <div class="legend-item"><span class="dot green"></span> Occupied ({{ summary.occupiedRooms }})</div>
+            <div class="legend-item"><span class="dot orange"></span> Maintenance ({{ summary.maintenanceRooms }})</div>
+            <div class="legend-item"><span class="dot red"></span> Available ({{ summary.availableRooms }})</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- OUTSTANDING DUES TABLE -->
+      <div class="dues-section">
+        <h3><mat-icon>warning</mat-icon> Outstanding Dues This Month</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>TENANT</th>
+                <th>ROOM</th>
+                <th>AMOUNT DUE</th>
+                <th>DAYS OVERDUE</th>
+                <th>LAST REMINDER</th>
+                <th>ACTION</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let due of outstandingDues">
+                <td class="tenant-name">{{ due.tenantName }}</td>
+                <td>{{ due.roomNumber }}</td>
+                <td class="amount-val">₹{{ due.amountDue | number }}</td>
+                <td class="overdue-val">{{ due.daysOverdue }} days</td>
+                <td>{{ due.lastReminder | date:'dd-MMM-yyyy' }}</td>
+                <td>
+                  <button class="reminder-btn">
+                    <mat-icon>smartphone</mat-icon> Send Reminder
+                  </button>
+                </td>
+              </tr>
+              <tr *ngIf="outstandingDues.length === 0">
+                <td colspan="6">
+                  <app-empty-state
+                    icon="verified"
+                    iconColor="#10b981"
+                    iconBgColor="#ecfdf5"
+                    title="All dues are clear!"
+                    description="There are no outstanding rent payments for the selected month. Great job on collection!"
+                    padding="40px 20px"
+                  ></app-empty-state>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- LOADING STATE -->
+      <div class="loading-wrap" *ngIf="loading">
+        <mat-spinner diameter="40"></mat-spinner>
+        <p>Loading analytics...</p>
       </div>
     </div>
-
-    <!-- TABS -->
-    <mat-tab-group (selectedIndexChange)='onTabChange($event)'>
-
-      <!-- TAB 1: MONTHLY REPORT -->
-      <mat-tab label='Monthly Report'>
-        <div class='tab-content'>
-
-          <!-- Month selector + Export buttons -->
-          <div class='report-toolbar'>
-            <select [(ngModel)]='selectedMonth' (change)='loadMonthly()' class='month-picker'>
-              @for (m of months; track m.value) {
-                <option [value]='m.value'>{{ m.label }}</option>
-              }
-            </select>
-            <div class='export-btns'>
-              <button mat-stroked-button (click)='exportPdf()' [disabled]='!report'>
-                <mat-icon>picture_as_pdf</mat-icon> Export PDF
-              </button>
-              <button mat-stroked-button (click)='exportExcel()' [disabled]='!report'>
-                <mat-icon>table_chart</mat-icon> Export Excel
-              </button>
-            </div>
-          </div>
-
-          @if (loadingMonthly) {
-            <div class='loading-wrap'><mat-spinner diameter='40'></mat-spinner></div>
-          } @else if (report) {
-
-            <!-- Summary Cards -->
-            <div class='summary-grid'>
-              <div class='sum-card green'>
-                <div class='sum-label'>Total Collected</div>
-                <div class='sum-value'>₹{{ report.totalCollected | number }}</div>
-                <div class='sum-sub'>{{ report.paidCount }} fully paid</div>
-              </div>
-              <div class='sum-card red'>
-                <div class='sum-label'>Total Outstanding</div>
-                <div class='sum-value'>₹{{ report.totalOutstanding | number }}</div>
-                <div class='sum-sub'>{{ report.overdueCount }} overdue</div>
-              </div>
-              <div class='sum-card blue'>
-                <div class='sum-label'>Total Rent Due</div>
-                <div class='sum-value'>₹{{ report.totalRentDue | number }}</div>
-                <div class='sum-sub'>{{ report.totalTenants }} tenants</div>
-              </div>
-              <div class='sum-card amber'>
-                <div class='sum-label'>Collection Rate</div>
-                <div class='sum-value'>{{ report.collectionRate }}%</div>
-                <div class='sum-sub'>{{ report.partialCount }} partial</div>
-              </div>
-            </div>
-
-            <!-- Collection Rate Bar -->
-            <div class='rate-bar-wrap'>
-              <div class='rate-label'>Collection Rate — {{ report.collectionRate }}%</div>
-              <div class='rate-bar'>
-                <div class='rate-fill'
-                     [style.width]='report.collectionRate + "%"'
-                     [style.background]='getRateColor(report.collectionRate)'></div>
-              </div>
-            </div>
-
-            <!-- Tenant Breakdown Table -->
-            <div class='table-wrap'>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Tenant</th><th>Room</th><th>Rent Due</th>
-                    <th>Amount Paid</th><th>Balance</th>
-                    <th>Status</th><th>Paid Date</th><th>Mode</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (p of report.payments; track p.id) {
-                    <tr [class.overdue-row]='p.overdue'>
-                      <td class='tenant-name'>{{ p.tenantName }}</td>
-                      <td>{{ p.roomNumber }}</td>
-                      <td>₹{{ p.rentAmount | number }}</td>
-                      <td>₹{{ p.amountPaid | number }}</td>
-                      <td [class.balance-red]='p.balance > 0'>₹{{ p.balance | number }}</td>
-                      <td><span [class]='statusClass(p.status)'>{{ p.status }}</span></td>
-                      <td>{{ p.paymentDate ? (p.paymentDate | date:'dd MMM') : '—' }}</td>
-                      <td>{{ p.paymentMode ?? '—' }}</td>
-                    </tr>
-                  } @empty {
-                    <tr><td colspan='8' class='empty-row'>No payment data for this month.</td></tr>
-                  }
-                </tbody>
-              </table>
-            </div>
-          }
-        </div>
-      </mat-tab>
-
-      <!-- TAB 2: ANNUAL SUMMARY (Bar Chart) -->
-      <mat-tab label='Annual Summary'>
-        <div class='tab-content'>
-          <div class='report-toolbar'>
-            <select [(ngModel)]='selectedYear' (change)='loadAnnual()' class='month-picker'>
-              @for (y of years; track y) {
-                <option [value]='y'>{{ y }}</option>
-              }
-            </select>
-          </div>
-
-          @if (loadingAnnual) {
-            <div class='loading-wrap'><mat-spinner diameter='40'></mat-spinner></div>
-          } @else if (annual) {
-
-            <!-- Annual Summary Cards -->
-            <div class='summary-grid' style='margin-bottom:24px'>
-              <div class='sum-card green'>
-                <div class='sum-label'>Year Total Collected</div>
-                <div class='sum-value'>₹{{ annual.totalCollected | number }}</div>
-              </div>
-              <div class='sum-card red'>
-                <div class='sum-label'>Year Total Outstanding</div>
-                <div class='sum-value'>₹{{ annual.totalOutstanding | number }}</div>
-              </div>
-            </div>
-
-            <!-- Bar Chart -->
-            <div class='chart-wrap'>
-              <canvas #barChart></canvas>
-            </div>
-
-            <!-- Monthly breakdown table -->
-            <div class='table-wrap' style='margin-top:24px'>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Month</th><th>Collected</th><th>Outstanding</th><th>Tenants</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (m of annual.months; track m.month) {
-                    <tr>
-                      <td>{{ m.monthLabel }}</td>
-                      <td class='amount-green'>₹{{ m.collected | number }}</td>
-                      <td class='amount-red'>₹{{ m.outstanding | number }}</td>
-                      <td>{{ m.tenantCount }}</td>
-                    </tr>
-                  }
-                </tbody>
-              </table>
-            </div>
-          }
-        </div>
-      </mat-tab>
-
-    </mat-tab-group>
-  </div>
   `,
   styles: [`
-    .page { padding:24px; }
-    .page-header { margin-bottom:20px; }
-    .page-header h1 { margin:0;font-size:24px;font-weight:700;color:#1F3864; }
-    .subtitle { margin:4px 0 0;color:#666;font-size:14px; }
-    .tab-content { padding:20px 0; }
+    .reports-container { padding: 24px; background: #f8fafc; min-height: 100vh; position: relative; }
+    
+    .toolbar { display: flex; align-items: center; gap: 16px; margin-bottom: 32px; }
+    .title-section h2 { margin: 0; font-size: 20px; font-weight: 800; color: #1e293b; }
+    .title-section p { margin: 4px 0 0; font-size: 12px; color: #64748b; font-weight: 500; }
+    .spacer { flex: 1; }
+    .toolbar-actions { display: flex; gap: 12px; align-items: center; }
 
-    /* TOOLBAR */
-    .report-toolbar { display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px; }
-    .month-picker { padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;background:#fff; }
-    .export-btns { display:flex;gap:8px; }
+    .month-picker { padding: 10px 16px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 13px; font-weight: 600; background: white; cursor: pointer; outline: none; transition: all 0.2s; color: #475569; }
+    .month-picker:hover { border-color: #cbd5e1; }
 
-    /* SUMMARY CARDS */
-    .summary-grid { display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px; }
-    .sum-card { padding:20px;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.06); }
-    .sum-label { font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;opacity:.8; }
-    .sum-value { font-size:24px;font-weight:700;margin:8px 0 4px; }
-    .sum-sub   { font-size:12px;opacity:.7; }
-    .sum-card.green { background:#E8F5E9;color:#2E7D32; }
-    .sum-card.red   { background:#FFEBEE;color:#C62828; }
-    .sum-card.blue  { background:#E3F2FD;color:#1565C0; }
-    .sum-card.amber { background:#FFF8E1;color:#F57F17; }
+    .export-btn { height: 42px; border-radius: 8px; font-weight: 700; font-size: 13px; text-transform: none; }
+    .export-btn.pdf { background: #eff6ff; color: #2563eb; }
+    .export-btn.excel { background: #f0fdf4; color: #166534; }
+    .export-btn mat-icon { font-size: 20px; width: 20px; height: 20px; margin-right: 8px; }
 
-    /* COLLECTION RATE BAR */
-    .rate-bar-wrap { margin-bottom:20px; }
-    .rate-label { font-size:13px;font-weight:600;color:#1F3864;margin-bottom:8px; }
-    .rate-bar { height:12px;background:#E0E0E0;border-radius:6px;overflow:hidden; }
-    .rate-fill { height:100%;border-radius:6px;transition:width .5s ease; }
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 32px; }
+    .stat-card { background: white; border-radius: 12px; padding: 24px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: transform 0.2s; }
+    .stat-card:hover { transform: translateY(-2px); }
+    .card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .card-label { font-size: 10px; font-weight: 800; color: #94a3b8; letter-spacing: 1px; }
+    .card-mini-icon { font-size: 18px; width: 18px; height: 18px; opacity: 0.5; }
+    .card-value { font-size: 28px; font-weight: 800; color: #1e293b; margin-bottom: 8px; }
+    .card-trend { font-size: 12px; font-weight: 700; }
+    .card-trend.up { color: #10b981; }
+    .card-trend.down { color: #ef4444; }
+    .card-subtext { font-size: 12px; color: #94a3b8; font-weight: 500; }
+    .revenue { border-top: 4px solid #10b981; }
+    .outstanding { border-top: 4px solid #ef4444; }
+    .occupancy { border-top: 4px solid #3b82f6; }
+    .profit { border-top: 4px solid #a855f7; }
 
-    /* TABLE */
-    .loading-wrap { display:flex;justify-content:center;padding:60px; }
-    .table-wrap { background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08);overflow-x:auto; }
-    table { width:100%;border-collapse:collapse;min-width:700px; }
-    thead tr { background:#1F3864; }
-    th { color:#fff;font-size:11px;text-transform:uppercase;letter-spacing:.5px;padding:12px 14px;text-align:left;font-weight:600; }
-    td { padding:12px 14px;font-size:13px;border-bottom:1px solid #f0f0f0;vertical-align:middle; }
-    tbody tr:hover { background:#f9f9f9; }
-    .overdue-row td { background:#FFF5F5; }
-    .tenant-name { font-weight:600;color:#1F3864; }
-    .balance-red { color:#C62828;font-weight:600; }
-    .amount-green { color:#2E7D32;font-weight:600; }
-    .amount-red   { color:#C62828; }
-    .empty-row { text-align:center;color:#999;padding:40px; }
+    .charts-row { display: grid; grid-template-columns: 2.8fr 1fr; gap: 24px; margin-bottom: 32px; }
+    .main-chart-card, .side-chart-card { background: white; border-radius: 16px; padding: 32px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+    .main-chart-card h3, .side-chart-card h3 { margin: 0 0 8px; font-size: 15px; font-weight: 800; color: #1e293b; text-transform: uppercase; letter-spacing: 0.5px; }
+    
+    .chart-legend { display: flex; gap: 16px; margin-bottom: 24px; }
+    .leg-item { font-size: 11px; font-weight: 700; color: #64748b; display: flex; align-items: center; gap: 6px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; }
+    .dot.green { background: #10b981; }
+    .dot.red { background: #ef4444; }
+    .dot.orange { background: #f59e0b; }
+    .dot.blue { background: #3b82f6; }
 
-    /* STATUS BADGES */
-    .badge-paid    { background:#E8F5E9;color:#2E7D32;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600; }
-    .badge-pending { background:#FFF8E1;color:#F57F17;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600; }
-    .badge-partial { background:#E3F2FD;color:#1565C0;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600; }
-    .badge-overdue { background:#FFEBEE;color:#C62828;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600; }
+    .chart-container { height: 320px; position: relative; }
+    
+    .donut-container { height: 220px; position: relative; margin: 20px 0 32px; }
+    .donut-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; }
+    .center-val { font-size: 28px; font-weight: 800; color: #1e293b; }
+    .center-lbl { font-size: 9px; font-weight: 800; color: #94a3b8; letter-spacing: 1px; margin-top: -2px; }
+    
+    .donut-legend { display: flex; flex-direction: column; gap: 12px; }
+    .legend-item { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 600; color: #475569; }
 
-    /* CHART */
-    .chart-wrap { background:#fff;border-radius:12px;padding:24px;box-shadow:0 1px 4px rgba(0,0,0,.08); }
+    .dues-section { background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); overflow: hidden; }
+    .dues-section h3 { padding: 24px 32px; margin: 0; font-size: 15px; font-weight: 800; color: #1e293b; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #f1f5f9; text-transform: uppercase; letter-spacing: 0.5px; }
+    .dues-section h3 mat-icon { color: #f59e0b; font-size: 20px; width: 20px; height: 20px; }
+    
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; padding: 16px 32px; font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; background: #fdfdfd; border-bottom: 1px solid #f1f5f9; }
+    td { padding: 18px 32px; font-size: 14px; border-bottom: 1px solid #f1f5f9; color: #475569; font-weight: 500; }
+    .tenant-name { font-weight: 700; color: #1e293b; }
+    .amount-val { color: #ef4444; font-weight: 800; }
+    .overdue-val { color: #ef4444; font-weight: 700; }
+    .reminder-btn { display: flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 8px; border: none; background: #1e293b; color: white; font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+    .reminder-btn:hover { background: #334155; }
+    .reminder-btn mat-icon { font-size: 16px; width: 16px; height: 16px; }
+    .empty-row { text-align: center; padding: 60px; color: #94a3b8; font-weight: 600; font-size: 15px; }
+
+    .loading-wrap { position: absolute; inset: 0; background: rgba(255,255,255,0.7); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; gap: 16px; border-radius: 12px; }
+    .loading-wrap p { font-weight: 700; color: #64748b; }
+
+    @media (max-width: 1400px) {
+      .charts-row { grid-template-columns: 1fr; }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    }
   `]
 })
-export class ReportsComponent implements OnInit, AfterViewInit {
-  @ViewChild('barChart') barChartRef!: ElementRef<HTMLCanvasElement>;
-
+export class ReportsComponent implements OnInit, OnDestroy {
   private reportService = inject(ReportService);
-  private cdr           = inject(ChangeDetectorRef);
-  private snackBar      = inject(MatSnackBar);
+  private roomService = inject(RoomService);
+  private snackBar = inject(MatSnackBar);
+  private cdr = inject(ChangeDetectorRef);
+  private destroy$ = new Subject<void>();
 
-  report:  MonthlyReport | null = null;
-  annual:  AnnualSummary | null = null;
-  loadingMonthly = true;
-  loadingAnnual  = false;
-  activeTab = 0;
+  summary: DashboardSummary | null = null;
+  outstandingDues: OutstandingDue[] = [];
+  selectedMonth = this.getInitialMonth();
+  monthOptions = this.generateMonthOptions();
+  loading = true;
 
-  months = this.buildMonths();
-  selectedMonth = this.months[0].value;
-  years  = [2026, 2025, 2024];
-  selectedYear = new Date().getFullYear();
-
-  private chartInstance: any = null;
-
-  ngOnInit() { this.loadMonthly(); }
-  ngAfterViewInit() {}
-
-  buildMonths() {
-    const result = [];
-    const now = new Date();
-    for (let i = 0; i <= 11; i++) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      result.push({
-        value: d.toISOString().split('T')[0],
-        label: d.toLocaleString('default', { month: 'long', year: 'numeric' })
-      });
+  // Bar Chart Configuration
+  public barChartOptions: ChartConfiguration['options'] = {
+    indexAxis: 'y',
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 10 } } },
+      y: { grid: { display: false }, ticks: { color: '#475569', font: { size: 11, weight: 'bold' } } }
     }
-    return result;
+  };
+  public barChartType: ChartType = 'bar';
+  public barChartData: ChartData<'bar'> = {
+    labels: [],
+    datasets: [
+      { 
+        data: [], 
+        backgroundColor: '#10b981', 
+        borderRadius: 4,
+        barThickness: 12,
+        label: 'Income'
+      },
+      { 
+        data: [], 
+        backgroundColor: '#ef4444', 
+        borderRadius: 4,
+        barThickness: 12,
+        label: 'Expenses'
+      }
+    ]
+  };
+
+  // Doughnut Chart Configuration
+  public doughnutChartOptions: any = {
+    responsive: true,
+    maintainAspectRatio: false,
+    cutout: '85%',
+    plugins: { legend: { display: false } }
+  };
+  public doughnutChartType: ChartType = 'doughnut';
+  public doughnutChartData: ChartData<'doughnut'> = {
+    labels: ['Occupied', 'Maintenance', 'Available'],
+    datasets: [{
+      data: [0, 0, 0],
+      backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
+      borderWidth: 0,
+      hoverOffset: 4
+    }]
+  };
+
+  ngOnInit(): void {
+    this.loadData();
+
+    // Wire up global refresh button
+    this.roomService.refresh$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => this.loadData());
   }
 
-  onTabChange(index: number) {
-    this.activeTab = index;
-    if (index === 1 && !this.annual) { this.loadAnnual(); }
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
-  loadMonthly() {
-    this.loadingMonthly = true;
-    this.reportService.getMonthlyReport(this.selectedMonth).subscribe({
-      next: r => { this.report = r; this.loadingMonthly = false; this.cdr.detectChanges(); },
-      error: () => { this.loadingMonthly = false; this.cdr.detectChanges(); }
-    });
+  getInitialMonth(): string {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
   }
 
-  loadAnnual() {
-    this.loadingAnnual = true;
-    this.reportService.getAnnualSummary(this.selectedYear).subscribe({
-      next: a => {
-        this.annual = a;
-        this.loadingAnnual = false;
+  generateMonthOptions(): {label: string, value: string}[] {
+    const options = [];
+    const d = new Date();
+    for (let i = 0; i < 12; i++) {
+      const month = new Date(d.getFullYear(), d.getMonth() - i, 1);
+      const val = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}-01`;
+      const lbl = month.toLocaleString('default', { month: 'long', year: 'numeric' });
+      options.push({ label: lbl, value: val });
+    }
+    return options;
+  }
+
+  loadData(): void {
+    this.loading = true;
+    
+    forkJoin({
+      summary: this.reportService.getDashboardSummary(),
+      trend: this.reportService.getProfitTrend(6),
+      dues: this.reportService.getOutstandingDues()
+    }).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (res) => {
+        this.summary = res.summary;
+        this.outstandingDues = res.dues || [];
+        
+        // Update Bar Chart
+        if (res.trend && res.trend.trends) {
+          this.barChartData.labels = res.trend.trends.map(t => t.monthLabel.split(' ')[0]);
+          this.barChartData.datasets[0].data = res.trend.trends.map(t => t.revenue);
+          this.barChartData.datasets[1].data = res.trend.trends.map(t => t.expenses);
+        }
+
+        // Update Donut Chart
+        if (res.summary) {
+          this.doughnutChartData.datasets[0].data = [
+            res.summary.occupiedRooms,
+            res.summary.maintenanceRooms,
+            res.summary.availableRooms
+          ];
+        }
+
+        this.loading = false;
         this.cdr.detectChanges();
-        setTimeout(() => this.renderChart(), 100);
       },
-      error: () => { this.loadingAnnual = false; this.cdr.detectChanges(); }
-    });
-  }
-
-  renderChart() {
-    if (!this.barChartRef || !this.annual) return;
-    const Chart = (window as any).Chart;
-    if (!Chart) { this.loadChartJs(); return; }
-    if (this.chartInstance) { this.chartInstance.destroy(); }
-    const ctx = this.barChartRef.nativeElement.getContext('2d');
-    this.chartInstance = new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels: this.annual.months.map(m => m.monthLabel),
-        datasets: [
-          { label: 'Collected', data: this.annual.months.map(m => m.collected),
-            backgroundColor: '#2E7D32', borderRadius: 4 },
-          { label: 'Outstanding', data: this.annual.months.map(m => m.outstanding),
-            backgroundColor: '#C62828', borderRadius: 4 },
-        ]
-      },
-      options: {
-        responsive: true,
-        plugins: { legend: { position: 'top' } },
-        scales: { y: { beginAtZero: true } }
+      error: (err) => {
+        console.error('Error loading reports:', err);
+        this.loading = false;
+        this.cdr.detectChanges();
       }
     });
   }
 
-  loadChartJs() {
-    const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
-    script.onload = () => this.renderChart();
-    document.head.appendChild(script);
-  }
-
-  statusClass(s: string) {
-    return {
-      'badge-paid': s==='PAID', 'badge-pending': s==='PENDING',
-      'badge-partial': s==='PARTIAL', 'badge-overdue': s==='OVERDUE'
-    };
-  }
-
-  getRateColor(rate: number): string {
-    if (rate >= 80) return '#2E7D32';
-    if (rate >= 50) return '#F57F17';
-    return '#C62828';
-  }
-
-  exportPdf() {
-    this.reportService.exportPdf(this.selectedMonth).subscribe(blob => {
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank');
+  exportPdf(): void {
+    this.snackBar.open('Generating PDF Report...', 'Close', { duration: 2000 });
+    this.reportService.exportPdf(this.selectedMonth).subscribe({
+      next: (blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `PG-Report-${this.selectedMonth}.pdf`;
+        a.click();
+      },
+      error: (err) => {
+        console.error('PDF export failed', err);
+        this.snackBar.open('PDF export failed. Ensure service is running.', 'Close', { duration: 3000 });
+      }
     });
   }
 
-  exportExcel() {
-    this.reportService.exportExcel(this.selectedMonth).subscribe(blob => {
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement('a');
-      a.href     = url;
-      a.download = `report-${this.selectedMonth}.xlsx`;
-      a.click();
-      URL.revokeObjectURL(url);
+  exportExcel(): void {
+    this.snackBar.open('Generating Excel Report...', 'Close', { duration: 2000 });
+    this.reportService.exportExcel(this.selectedMonth).subscribe({
+      next: (blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `PG-Report-${this.selectedMonth}.xlsx`;
+        a.click();
+      },
+      error: (err) => {
+        console.error('Excel export failed', err);
+        this.snackBar.open('Excel export failed. Ensure service is running.', 'Close', { duration: 3000 });
+      }
     });
   }
 }
-

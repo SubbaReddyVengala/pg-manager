@@ -9,7 +9,7 @@ spring:
       routes:
         # PUBLIC auth routes - no JWT check
         - id: auth-public
-          uri: http://localhost:8081
+          uri: ${AUTH_SERVICE_URL:http://127.0.0.1:8081}
           predicates:
             - Path=/api/auth/login,/api/auth/register,/api/auth/refresh
           filters:
@@ -17,16 +17,24 @@ spring:
 
         # SECURED auth routes - JWT required
         - id: auth-secured
-          uri: http://localhost:8081
+          uri: ${AUTH_SERVICE_URL:http://127.0.0.1:8081}
           predicates:
             - Path=/api/auth/**
           filters:
             - StripPrefix=1
             - JwtValidation
 
-        # Room, Tenant, Payment, etc. - add as you build each phase
+        # Room, Tenant, Payment, etc.
+        - id: settings-route
+          uri: ${AUTH_SERVICE_URL:http://127.0.0.1:8081}
+          predicates:
+            - Path=/api/settings/**
+          filters:
+            - StripPrefix=1
+            - JwtValidation
+
         - id: room-service
-          uri: http://localhost:8082
+          uri: ${ROOM_SERVICE_URL:http://127.0.0.1:8082}
           predicates:
             - Path=/api/rooms/**
           filters:
@@ -34,7 +42,7 @@ spring:
             - JwtValidation
             
         - id: tenant-service
-          uri: http://localhost:8083
+          uri: ${TENANT_SERVICE_URL:http://127.0.0.1:8083}
           predicates:
             - Path=/api/tenants/**
           filters:
@@ -42,23 +50,38 @@ spring:
             - JwtValidation
 
         - id: payment-service
-          uri: http://localhost:8084
+          uri: ${PAYMENT_SERVICE_URL:http://127.0.0.1:8084}
           predicates:
             - Path=/api/payments/**
           filters:
             - StripPrefix=1
             
         - id: report-service
-          uri: http://localhost:8084
+          uri: ${REPORT_SERVICE_URL:http://127.0.0.1:8088}
           predicates:
             - Path=/api/reports/**
           filters:
             - StripPrefix=1
 
+        - id: notification-service
+          uri: ${NOTIFICATION_SERVICE_URL:http://127.0.0.1:8087}
+          predicates:
+            - Path=/api/notifications/**
+          filters:
+            - StripPrefix=1
+
+        - id: maintenance-service
+          uri: ${MAINTENANCE_SERVICE_URL:http://127.0.0.1:8089}
+          predicates:
+            - Path=/api/maintenance/**
+          filters:
+            - StripPrefix=1
+            - JwtValidation
+
 
 
 jwt:
-  secret: pgmanager-dev-secret-subbu-2026-min-32-chars
+  secret: ${JWT_SECRET:pgmanager-dev-secret-subbu-2026-min-32-chars}
 
 management:
   endpoints:

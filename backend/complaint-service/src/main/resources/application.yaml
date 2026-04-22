@@ -4,7 +4,7 @@ spring:
   application:
     name: complaint-service
   datasource:
-    url: jdbc:postgresql://localhost:5432/pgmanager?currentSchema=complaint_schema
+    url: jdbc:postgresql://127.0.0.1:5432/pgmanager?currentSchema=complaint_schema
     username: postgres
     password: postgres
     driver-class-name: org.postgresql.Driver

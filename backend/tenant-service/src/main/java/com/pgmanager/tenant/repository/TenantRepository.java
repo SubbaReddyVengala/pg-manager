@@ -43,5 +43,8 @@ public interface TenantRepository extends JpaRepository<Tenant, Long> {
 
     // Check if room already has an active tenant
     Optional<Tenant> findByRoomIdAndStatus(Long roomId, TenantStatus status);
+
+    // Get all tenants for a room
+    List<Tenant> findByRoomIdAndStatusIn(Long roomId, List<TenantStatus> statuses);
 }
 

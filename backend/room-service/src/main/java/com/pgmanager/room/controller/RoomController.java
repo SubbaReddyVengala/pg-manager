@@ -73,6 +73,12 @@ public class RoomController {
         roomService.deleteRoom(id);
         return ResponseEntity.noContent().build();
     }
+
+    @GetMapping("/exists/{roomNumber}")
+    public ResponseEntity<Boolean> exists(@PathVariable String roomNumber) {
+        return ResponseEntity.ok(roomService.existsByRoomNumber(roomNumber));
+    }
+
     @PatchMapping("/{id}/occupancy/increment")
     public ResponseEntity<RoomResponse> increment(@PathVariable Long id) {
         return ResponseEntity.ok(roomService.incrementOccupancy(id));

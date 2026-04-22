@@ -8,5 +8,6 @@ public class RoomStatsResponse {
     private long   occupied;
     private long   available;
     private long   maintenance;
+    private long   floorCount;
     private double occupancyRate;   // percentage e.g. 66.7
 }

@@ -14,7 +14,6 @@ export class TenantService {
   private base = `${environment.apiUrl}/tenants`;
   private roomBase = `${environment.apiUrl}/rooms`;
 
-  // ── List & Stats ──────────────────────────────────────────────────────
   getAll(): Observable<TenantResponse[]> {
     return this.http.get<TenantResponse[]>(this.base);
   }
@@ -23,41 +22,47 @@ export class TenantService {
     return this.http.get<TenantStats>(`${this.base}/stats`);
   }
 
-  // ── Single tenant ─────────────────────────────────────────────────────
   getById(id: number): Observable<TenantDetailResponse> {
     return this.http.get<TenantDetailResponse>(`${this.base}/${id}`);
   }
 
-  // ── CRUD ──────────────────────────────────────────────────────────────
-  create(req: TenantRequest): Observable<TenantDetailResponse> {
+  getTenantsByRoom(roomId: number): Observable<TenantResponse[]> {
+    return this.http.get<TenantResponse[]>(`${this.base}/room/${roomId}`);
+  }
+
+  createTenant(req: TenantRequest): Observable<TenantDetailResponse> {
     return this.http.post<TenantDetailResponse>(this.base, req);
   }
 
-  update(id: number, req: TenantRequest): Observable<TenantDetailResponse> {
+  updateTenant(id: number, req: TenantRequest): Observable<TenantDetailResponse> {
     return this.http.put<TenantDetailResponse>(`${this.base}/${id}`, req);
   }
 
-  // ── Assign Room ───────────────────────────────────────────────────────
+  // Aliases for compatibility
+  create(req: TenantRequest): Observable<TenantDetailResponse> { return this.createTenant(req); }
+  update(id: number, req: TenantRequest): Observable<TenantDetailResponse> { return this.updateTenant(id, req); }
+
   assignRoom(tenantId: number, roomId: number): Observable<TenantDetailResponse> {
-  return this.http.post<TenantDetailResponse>(
-    `${this.base}/${tenantId}/assign-room`,
-    { roomId: roomId }
-  );
-}
+    return this.http.post<TenantDetailResponse>(
+      `${this.base}/${tenantId}/assign-room`,
+      { roomId: roomId }
+    );
+  }
 
-  // ── Move Out ──────────────────────────────────────────────────────────
- moveOut(tenantId: number): Observable<TenantDetailResponse> {
-  const today = new Date().toISOString().split('T')[0];
-  return this.http.post<TenantDetailResponse>(
-    `${this.base}/${tenantId}/move-out`,
-    { moveOutDate: today }
-  );
-}
+  moveOut(tenantId: number): Observable<TenantDetailResponse> {
+    const today = new Date().toISOString().split('T')[0];
+    return this.http.post<TenantDetailResponse>(
+      `${this.base}/${tenantId}/move-out`,
+      { moveOutDate: today }
+    );
+  }
 
-  // ── Available rooms (for Assign Room dropdown) ───────────────────────
   getAvailableRooms(): Observable<RoomResponse[]> {
     const params = new HttpParams().set('status', 'AVAILABLE');
     return this.http.get<RoomResponse[]>(this.roomBase, { params });
   }
-}
 
+  deleteTenant(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.base}/${id}`);
+  }
+}

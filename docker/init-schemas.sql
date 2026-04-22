@@ -8,3 +8,4 @@ CREATE SCHEMA IF NOT EXISTS complaint_schema;
 CREATE SCHEMA IF NOT EXISTS expense_schema;
 CREATE SCHEMA IF NOT EXISTS notification_schema;
 CREATE SCHEMA IF NOT EXISTS report_schema;
+CREATE SCHEMA IF NOT EXISTS maintenance_schema;

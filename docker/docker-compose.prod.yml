@@ -1,0 +1,143 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: pg_manager_db_prod
+    environment:
+      POSTGRES_DB: pgmanager
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    volumes:
+      - pg_prod_data:/var/lib/postgresql/data
+      - ./init-schemas.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d pgmanager"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pg_network
+
+  api-gateway:
+    build: ../backend/api-gateway
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - AUTH_SERVICE_URL=http://auth-service:8081
+      - ROOM_SERVICE_URL=http://room-service:8082
+      - TENANT_SERVICE_URL=http://tenant-service:8083
+      - PAYMENT_SERVICE_URL=http://payment-service:8084
+      - MAINTENANCE_SERVICE_URL=http://maintenance-service:8089
+      - REPORT_SERVICE_URL=http://report-service:8088
+      - NOTIFICATION_SERVICE_URL=http://notification-service:8087
+    depends_on:
+      - auth-service
+    networks:
+      - pg_network
+
+  auth-service:
+    build: ../backend/auth-service
+    container_name: auth-service
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/pgmanager?currentSchema=auth_schema
+      - SPRING_DATASOURCE_USERNAME=${DB_USER:-postgres}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-postgres}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - pg_network
+
+  room-service:
+    build: ../backend/room-service
+    container_name: room-service
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/pgmanager?currentSchema=room_schema
+      - SPRING_DATASOURCE_USERNAME=${DB_USER:-postgres}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-postgres}
+      - TENANT_SERVICE_URL=http://tenant-service:8083
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - pg_network
+
+  tenant-service:
+    build: ../backend/tenant-service
+    container_name: tenant-service
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/pgmanager?currentSchema=tenant_schema
+      - SPRING_DATASOURCE_USERNAME=${DB_USER:-postgres}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-postgres}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - pg_network
+
+  payment-service:
+    build: ../backend/payment-service
+    container_name: payment-service
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/pgmanager?currentSchema=payment_schema
+      - SPRING_DATASOURCE_USERNAME=${DB_USER:-postgres}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-postgres}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - pg_network
+
+  maintenance-service:
+    build: ../backend/maintenance-service
+    container_name: maintenance-service
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/pgmanager?currentSchema=maintenance_schema
+      - SPRING_DATASOURCE_USERNAME=${DB_USER:-postgres}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-postgres}
+      - PAYMENT_SERVICE_URL=http://payment-service:8084
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - pg_network
+
+  report-service:
+    build: ../backend/report-service
+    container_name: report-service
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/pgmanager?currentSchema=report_schema
+      - SPRING_DATASOURCE_USERNAME=${DB_USER:-postgres}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-postgres}
+      - ROOM_SERVICE_URL=http://room-service:8082
+      - PAYMENT_SERVICE_URL=http://payment-service:8084
+      - MAINTENANCE_SERVICE_URL=http://maintenance-service:8089
+      - TENANT_SERVICE_URL=http://tenant-service:8083
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - pg_network
+
+  notification-service:
+    build: ../backend/notification-service
+    container_name: notification-service
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/pgmanager?currentSchema=notification_schema
+      - SPRING_DATASOURCE_USERNAME=${DB_USER:-postgres}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-postgres}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - pg_network
+
+networks:
+  pg_network:
+    driver: bridge
+
+volumes:
+  pg_prod_data:

@@ -1,5 +1,7 @@
 package com.pgmanager.tenant.service;
+
 import com.pgmanager.tenant.client.RoomServiceClient;
+import com.pgmanager.tenant.client.PaymentServiceClient;
 import com.pgmanager.tenant.dto.*;
 import com.pgmanager.tenant.entity.Tenant;
 import com.pgmanager.tenant.enums.TenantStatus;
@@ -23,13 +25,13 @@ public class TenantServiceImpl implements TenantService {
 
     private final TenantRepository  tenantRepository;
     private final RoomServiceClient roomClient;
+    private final PaymentServiceClient paymentClient;
     private final RestTemplate restTemplate;
 
     @Value("${payment-service.url}")
     private String paymentServiceUrl;
+
     // ── Create Tenant ──────────────────────────────────────
-    // If roomId provided: ACTIVE + call room-service OCCUPIED
-    // If no roomId: PENDING (assign room later)
     @Override
     public TenantResponse createTenant(TenantRequest req) {
         if (tenantRepository.existsByEmail(req.getEmail())) {
@@ -40,7 +42,6 @@ public class TenantServiceImpl implements TenantService {
         TenantStatus status = TenantStatus.PENDING;
 
         if (req.getRoomId() != null) {
-            // Verify room not already occupied
             roomNumber = roomClient.getRoomNumber(req.getRoomId());
             status = TenantStatus.ACTIVE;
             roomClient.incrementOccupancy(req.getRoomId());
@@ -64,7 +65,14 @@ public class TenantServiceImpl implements TenantService {
                 .status(status)
                 .build();
 
-        return toResponse(tenantRepository.save(tenant));
+        tenant = tenantRepository.save(tenant);
+
+        // Record initial payment if joining now
+        if (tenant.getStatus() == TenantStatus.ACTIVE && tenant.getMonthlyRent() != null) {
+            paymentClient.recordInitialPayment(tenant.getId(), tenant.getMonthlyRent(), "Initial rent paid on joining day");
+        }
+
+        return toResponse(tenant);
     }
 
     // ── Get All Tenants ────────────────────────────────────
@@ -89,9 +97,18 @@ public class TenantServiceImpl implements TenantService {
     @Override
     public TenantDetailResponse getTenantById(Long id) {
         Tenant t = findById(id);
-        long months = t.getMoveInDate() != null
-                ? ChronoUnit.MONTHS.between(t.getMoveInDate(), LocalDate.now())
-                : 0;
+        
+        // Correct duration calculation using Period
+        long months = 0;
+        if (t.getMoveInDate() != null) {
+            LocalDate end = (t.getMoveOutDate() != null) ? t.getMoveOutDate() : LocalDate.now();
+            Period period = Period.between(t.getMoveInDate(), end);
+            months = period.getYears() * 12L + period.getMonths();
+        }
+
+        // Fetch payment summary from payment-service
+        PaymentServiceClient.TenantPaymentSummary summary = paymentClient.getTenantPaymentSummary(id);
+
         return TenantDetailResponse.builder()
                 .id(t.getId())
                 .fullName(t.getFullName())
@@ -110,11 +127,10 @@ public class TenantServiceImpl implements TenantService {
                 .emergencyPhone(t.getEmergencyPhone())
                 .permanentAddress(t.getPermanentAddress())
                 .status(t.getStatus())
-                // Payment summary placeholder - Phase 4 fills these from payment-service
-                .totalPaid(BigDecimal.ZERO)
-                .outstanding(BigDecimal.ZERO)
+                .totalPaid(summary.getTotalPaid())
+                .outstanding(summary.getOutstanding())
                 .stayDurationMonths(months)
-                .isGoodStanding(true)
+                .isGoodStanding(summary.getOutstanding().compareTo(BigDecimal.ZERO) <= 0)
                 .build();
     }
 
@@ -141,7 +157,7 @@ public class TenantServiceImpl implements TenantService {
     public void deleteTenant(Long id) {
         Tenant t = findById(id);
         if (t.getStatus() == TenantStatus.ACTIVE) {
-            throw new RuntimeException("Cannot delete an ACTIVE tenant. Move out first.");
+            throw new RuntimeException("Cannot delete an ACTIVE tenant. Please perform 'Move Out' first to clear room occupancy and dues.");
         }
         tenantRepository.delete(t);
     }
@@ -162,11 +178,18 @@ public class TenantServiceImpl implements TenantService {
         if (req.getRentDueDay() != null) t.setRentDueDay(req.getRentDueDay());
         t.setStatus(TenantStatus.ACTIVE);
         roomClient.incrementOccupancy(req.getRoomId());
-        return toResponse(tenantRepository.save(t));
+        
+        t = tenantRepository.save(t);
+
+        // Record initial payment on assignment
+        if (t.getMonthlyRent() != null) {
+            paymentClient.recordInitialPayment(t.getId(), t.getMonthlyRent(), "Rent paid on joining day (assignment)");
+        }
+
+        return toResponse(t);
     }
 
     // ── Move Out ───────────────────────────────────────────
-    // "Move Out" button in Screenshot 3
     @Override
     public TenantResponse moveOut(Long id, MoveOutRequest req) {
         Tenant t = findById(id);
@@ -174,8 +197,6 @@ public class TenantServiceImpl implements TenantService {
             throw new RuntimeException("Only ACTIVE tenants can move out.");
         }
 
-        // Check outstanding dues via payment-service
-        // For now check using a simple REST call
         try {
             String url = paymentServiceUrl + "/payments/tenant/" + id;
             List<?> payments = restTemplate.exchange(
@@ -188,21 +209,17 @@ public class TenantServiceImpl implements TenantService {
                     if (p instanceof java.util.Map) {
                         java.util.Map<?,?> map = (java.util.Map<?,?>) p;
                         Object status = map.get("status");
-                        return "OVERDUE".equals(status) ||
-                                "PENDING".equals(status) ||
-                                "PARTIAL".equals(status);
+                        return "OVERDUE".equals(status) || "PENDING".equals(status) || "PARTIAL".equals(status);
                     }
                     return false;
                 });
                 if (hasOutstanding) {
-                    throw new RuntimeException(
-                            "Cannot move out — tenant has outstanding dues. Clear all payments first.");
+                    throw new RuntimeException("Cannot move out — tenant has outstanding dues. Clear all payments first.");
                 }
             }
         } catch (RuntimeException e) {
-            throw e; // rethrow our validation exception
+            throw e;
         } catch (Exception e) {
-            // payment-service down — allow move out with warning
             System.out.println("Warning: Could not verify payments for tenant: " + id);
         }
 
@@ -220,6 +237,14 @@ public class TenantServiceImpl implements TenantService {
         }
 
         return toResponse(tenantRepository.save(t));
+    }
+
+    @Override
+    public List<TenantResponse> getTenantsByRoom(Long roomId) {
+        return tenantRepository.findByRoomIdAndStatusIn(roomId, List.of(TenantStatus.ACTIVE, TenantStatus.PENDING))
+                .stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
     }
 
     // ── Stats ──────────────────────────────────────────────
@@ -243,17 +268,27 @@ public class TenantServiceImpl implements TenantService {
     }
 
     private TenantResponse toResponse(Tenant t) {
-        // Calculate overdue status (Screenshot 1 yellow row)
         boolean overdue = false;
         long daysOverdue = 0;
-        if (t.getStatus() == TenantStatus.ACTIVE
-                && t.getRentDueDay() != null
-                && t.getMoveInDate() != null) {
-            LocalDate today    = LocalDate.now();
-            LocalDate dueDate  = today.withDayOfMonth(t.getRentDueDay());
+
+        if (t.getStatus() == TenantStatus.ACTIVE && t.getRentDueDay() != null) {
+            LocalDate today = LocalDate.now();
+            LocalDate dueDate = today.withDayOfMonth(Math.min(t.getRentDueDay(), today.lengthOfMonth()));
+
             if (today.isAfter(dueDate)) {
-                overdue    = true;
-                daysOverdue = ChronoUnit.DAYS.between(dueDate, today);
+                try {
+                    String monthStr = today.withDayOfMonth(1).toString();
+                    String url = paymentServiceUrl + "/payments/tenant/" + t.getId() + "?month=" + monthStr;
+                    java.util.Map<?,?> p = restTemplate.getForObject(url, java.util.Map.class);
+                    
+                    if (p == null || !"PAID".equals(p.get("status"))) {
+                        overdue = true;
+                        daysOverdue = java.time.temporal.ChronoUnit.DAYS.between(dueDate, today);
+                    }
+                } catch (Exception e) {
+                    overdue = true;
+                    daysOverdue = java.time.temporal.ChronoUnit.DAYS.between(dueDate, today);
+                }
             }
         }
         return TenantResponse.builder()
@@ -274,4 +309,3 @@ public class TenantServiceImpl implements TenantService {
                 .build();
     }
 }
-

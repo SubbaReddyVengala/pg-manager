@@ -28,6 +28,11 @@ public class TenantServiceClient {
         ).getBody();
     }
 
+    public TenantInfo getTenant(Long id) {
+        String url = tenantServiceUrl + "/tenants/" + id;
+        return restTemplate.getForObject(url, TenantInfo.class);
+    }
+
     // Gets total security deposits from all active tenants
     public BigDecimal getTotalDeposits() {
         List<TenantInfo> tenants = getActiveTenants();
@@ -46,6 +51,7 @@ public class TenantServiceClient {
     public static class TenantInfo {
         private Long       id;
         private String     fullName;
+        private String     email;
         private Long       roomId;
         private String     roomNumber;
         private BigDecimal monthlyRent;

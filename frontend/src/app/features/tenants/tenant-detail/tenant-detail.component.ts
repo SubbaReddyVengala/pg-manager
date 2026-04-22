@@ -1,225 +1,287 @@
-import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { TenantService } from '../tenant.service';
-import { TenantFormComponent } from '../tenant-form/tenant-form.component';
-import { TenantDetailResponse } from '../../../shared/models/tenant.models';
+import { RoomService } from '../../../core/services/room.service';
+import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
+import { Subject, takeUntil } from 'rxjs';
 
 @Component({
   selector: 'app-tenant-detail',
   standalone: true,
-  imports: [
-    CommonModule, MatButtonModule, MatIconModule,
-    MatProgressSpinnerModule, MatSnackBarModule,
-    TenantFormComponent
-  ],
+  imports: [CommonModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule, ConfirmDialogComponent],
   template: `
-  <div class='page'>
-    <div class='back-row'>
-      <button mat-stroked-button (click)='goBack()'><mat-icon>arrow_back</mat-icon> Back</button>
-    </div>
+    <div class="detail-page">
+      
+      <!-- LOADING STATE -->
+      <div class="loading-wrap" *ngIf="loading">
+        <mat-spinner diameter="40"></mat-spinner>
+        <p>Loading tenant details...</p>
+      </div>
 
-    @if (loading) {
-      <div class='loading-wrap'><mat-spinner diameter='40'></mat-spinner></div>
-    } @else if (tenant) {
+      <!-- ERROR STATE -->
+      <div class="error-wrap" *ngIf="error && !loading">
+        <mat-icon>error_outline</mat-icon>
+        <h3>Failed to load tenant</h3>
+        <p>There was an error fetching the tenant details. Please try again.</p>
+        <button mat-flat-button color="primary" (click)="ngOnInit()">Retry</button>
+      </div>
 
-      <!-- HEADER CARD -->
-      <div class='profile-card'>
-        <div class='avatar'>{{ initials }}</div>
-        <div class='profile-info'>
-          <h2>{{ tenant.fullName }}</h2>
-          <p>{{ tenant.email }} · {{ tenant.phone }}</p>
-          <span [class]='statusClass'>{{ tenant.status }}</span>
-        </div>
-        @if (tenant.isGoodStanding) {
-          <div class='good-standing'><mat-icon>verified</mat-icon> Good Standing</div>
-        }
-        <div class='profile-actions'>
-          <button mat-stroked-button (click)='openEdit()'>
-            <mat-icon>edit</mat-icon> Edit
-          </button>
-          <button mat-stroked-button (click)='goToPayments()'
-                  [disabled]='tenant.status !== "ACTIVE"'>
-            <mat-icon>receipt_long</mat-icon> View Payments
-          </button>
-          @if (tenant.status === 'ACTIVE') {
-            <button mat-flat-button color='warn' (click)='confirmMoveOut()'>
+      <div class="detail-content" *ngIf="tenant && !loading">
+        <div class="header">
+          <div class="title-wrap">
+            <mat-icon class="back-icon" (click)="goBack()">arrow_back</mat-icon>
+            <h1>Tenant Detail View — {{ tenant.fullName }}</h1>
+          </div>
+          <div class="actions">
+            <button mat-flat-button class="btn-edit" (click)="onEdit()">
+              <mat-icon>edit</mat-icon> Edit
+            </button>
+            <button mat-flat-button class="btn-view-payments" (click)="onViewPayments()">
+              <mat-icon>payments</mat-icon> View Payments
+            </button>
+            <button mat-flat-button class="btn-move-out" (click)="onMoveOut()" [disabled]="tenant?.status === 'INACTIVE'">
               <mat-icon>exit_to_app</mat-icon> Move Out
             </button>
-          }
+          </div>
+        </div>
+
+        <div class="content-grid">
+          <div class="main-info">
+            <div class="info-grid">
+              <div class="info-item">
+                <label>FULL NAME</label>
+                <div class="val">{{ tenant.fullName }}</div>
+              </div>
+              <div class="info-item">
+                <label>PHONE</label>
+                <div class="val">{{ tenant.phone }}</div>
+              </div>
+              <div class="info-item">
+                <label>EMAIL</label>
+                <div class="val">{{ tenant.email }}</div>
+              </div>
+              <div class="info-item">
+                <label>ROOM ASSIGNED</label>
+                <div class="val text-blue">{{ tenant.roomNumber || 'Not Assigned' }}</div>
+              </div>
+              <div class="info-item">
+                <label>MOVE-IN DATE</label>
+                <div class="val">{{ tenant.moveInDate | date:'dd MMM yyyy' }}</div>
+              </div>
+              <div class="info-item">
+                <label>MONTHLY RENT</label>
+                <div class="val text-green">₹{{ tenant.monthlyRent | number }}</div>
+              </div>
+              <div class="info-item">
+                <label>SECURITY DEPOSIT</label>
+                <div class="val">₹{{ tenant.securityDeposit | number }}</div>
+              </div>
+              <div class="info-item">
+                <label>ID PROOF</label>
+                <div class="val">{{ tenant.idProofType }} — {{ tenant.idNumber }}</div>
+              </div>
+              <div class="info-item">
+                <label>EMERGENCY CONTACT</label>
+                <div class="val">{{ tenant.emergencyContact }} — {{ tenant.emergencyPhone }}</div>
+              </div>
+              <div class="info-item">
+                <label>STATUS</label>
+                <div class="val">
+                  <span class="badge" [class]="tenant.status.toLowerCase()">{{ tenant.status }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="side-info">
+            <div class="summary-card">
+              <h3>PAYMENT SUMMARY</h3>
+              <div class="sum-item">
+                <label>Total Paid</label>
+                <span class="val text-green">₹{{ tenant.totalPaid | number }}</span>
+              </div>
+              <div class="sum-item">
+                <label>Outstanding</label>
+                <span class="val text-red">₹{{ tenant.outstanding | number }}</span>
+              </div>
+              <div class="sum-item">
+                <label>Stay Duration</label>
+                <span class="val">{{ tenant.stayDurationMonths }} months</span>
+              </div>
+            </div>
+
+            <div class="standing-card">
+              <div class="standing-header">
+                <span class="standing-label">GOOD STANDING</span>
+                <mat-icon class="check">check_box</mat-icon>
+              </div>
+              <p>All payments up to date</p>
+            </div>
+          </div>
         </div>
       </div>
 
-      <!-- PAYMENT SUMMARY -->
-      <div class='summary-row'>
-        <div class='summary-card'>
-          <mat-icon class='s-icon green'>payments</mat-icon>
-          <div class='s-info'>
-            <span class='s-value'>₹{{ tenant.totalPaid | number }}</span>
-            <span class='s-label'>Total Paid</span>
-          </div>
-        </div>
-        <div class='summary-card'>
-          <mat-icon class='s-icon red'>money_off</mat-icon>
-          <div class='s-info'>
-            <span class='s-value'>₹{{ tenant.outstanding | number }}</span>
-            <span class='s-label'>Outstanding</span>
-          </div>
-        </div>
-        <div class='summary-card'>
-          <mat-icon class='s-icon blue'>calendar_today</mat-icon>
-          <div class='s-info'>
-            <span class='s-value'>{{ tenant.stayDurationMonths }}</span>
-            <span class='s-label'>Months Stay</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- DETAILS GRID -->
-      <div class='detail-grid'>
-        <div class='detail-section'>
-          <h3>Room &amp; Rent</h3>
-          <div class='detail-row'><span>Room</span><b>{{ tenant.roomNumber ?? '—' }}</b></div>
-          <div class='detail-row'><span>Move-in</span><b>{{ tenant.moveInDate | date:'dd MMM yyyy' }}</b></div>
-          <div class='detail-row'><span>Monthly Rent</span><b>₹{{ tenant.monthlyRent | number }}</b></div>
-          <div class='detail-row'><span>Security Deposit</span><b>₹{{ tenant.securityDeposit | number }}</b></div>
-          <div class='detail-row'><span>Rent Due Day</span><b>{{ tenant.rentDueDay }}</b></div>
-        </div>
-        <div class='detail-section'>
-          <h3>Identity</h3>
-          <div class='detail-row'><span>ID Type</span><b>{{ tenant.idProofType }}</b></div>
-          <div class='detail-row'><span>ID Number</span><b>{{ tenant.idNumber }}</b></div>
-          <div class='detail-row'><span>Emergency Contact</span><b>{{ tenant.emergencyContact }}</b></div>
-          <div class='detail-row'><span>Emergency Phone</span><b>{{ tenant.emergencyPhone }}</b></div>
-          <div class='detail-row'><span>Address</span><b>{{ tenant.permanentAddress }}</b></div>
-        </div>
-      </div>
-    }
-
-    @if (showForm && tenant) {
-      <app-tenant-form
-        [tenant]='tenant'
-        (saved)='onEdited()'
-        (closed)='showForm = false'
-      ></app-tenant-form>
-    }
-  </div>
+      <!-- CONFIRM MOVE OUT -->
+      <app-confirm-dialog
+        *ngIf="showMoveOutConfirm"
+        title="Confirm Move Out"
+        [message]="'Are you sure you want to mark ' + tenant.fullName + ' as Moved Out? This will free up room ' + tenant.roomNumber + '.'"
+        confirmText="Yes, Move Out"
+        type="warning"
+        (confirm)="executeMoveOut()"
+        (cancel)="showMoveOutConfirm = false">
+      </app-confirm-dialog>
+    </div>
   `,
   styles: [`
-    .page { padding:24px;max-width:1000px;margin:0 auto; }
-    .back-row { margin-bottom:20px; }
-    .loading-wrap { display:flex;justify-content:center;padding:60px; }
+    .detail-page { padding: 24px; background: #f8fafc; min-height: 400px; }
+    
+    .loading-wrap, .error-wrap { 
+      display: flex; flex-direction: column; align-items: center; 
+      justify-content: center; height: 300px; color: #64748b; 
+    }
+    .spinner {
+      width: 40px; height: 40px; border: 4px solid #e2e8f0;
+      border-top-color: #3b82f6; border-radius: 50%;
+      animation: spin 1s linear infinite; margin-bottom: 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* Profile header card */
-    .profile-card {
-      display:flex;align-items:center;gap:20px;
-      background:#1F3864;color:#fff;border-radius:12px;padding:24px;margin-bottom:20px;
-    }
-    .avatar {
-      width:64px;height:64px;border-radius:50%;background:#70A0D0;
-      display:flex;align-items:center;justify-content:center;
-      font-size:24px;font-weight:700;flex-shrink:0;
-    }
-    .profile-info { flex:1; }
-    .profile-info h2 { margin:0 0 4px;font-size:22px; }
-    .profile-info p { margin:0 0 8px;opacity:.8;font-size:14px; }
-    .good-standing {
-      display:flex;align-items:center;gap:6px;
-      background:#2E7D32;border-radius:8px;padding:8px 14px;font-size:14px;
-    }
-    .profile-actions { display:flex;gap:8px;flex-wrap:wrap; }
-    .profile-actions button { color:#fff !important;border-color:rgba(255,255,255,.4) !important; }
+    .error-wrap mat-icon { font-size: 48px; width: 48px; height: 48px; color: #ef4444; margin-bottom: 16px; }
+    .error-wrap h3 { color: #1e293b; margin-bottom: 8px; }
+    .error-wrap p { margin-bottom: 24px; }
 
-    /* Status badges */
-    .badge-active  { background:#E8F5E9;color:#2E7D32;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600; }
-    .badge-pending { background:#FFF8E1;color:#F57F17;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600; }
-    .badge-inactive{ background:rgba(255,255,255,.2);color:#fff;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; }
+    .title-wrap { display: flex; align-items: center; gap: 16px; }
+    .back-icon { cursor: pointer; color: #64748b; }
+    .header h1 { margin: 0; font-size: 20px; font-weight: 800; color: #1e293b; }
+    .actions { display: flex; gap: 12px; }
+    .actions button { border-radius: 8px; font-weight: 700; font-size: 13px; text-transform: none; }
+    .btn-edit { background: #f59e0b !important; color: white !important; transition: background 0.2s; }
+    .btn-edit:hover { background: #d97706 !important; }
 
-    /* Payment summary */
-    .summary-row { display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px; }
-    .summary-card {
-      display:flex;align-items:center;gap:16px;
-      background:#fff;border-radius:10px;padding:20px;
-      box-shadow:0 1px 4px rgba(0,0,0,.08);
-    }
-    .s-info { display:flex;flex-direction:column; }
-    .s-value { font-size:22px;font-weight:700; }
-    .s-label { font-size:12px;color:#666;margin-top:2px; }
-    .s-icon { font-size:32px;width:32px;height:32px; }
-    .s-icon.green { color:#2E7D32; }
-    .s-icon.red   { color:#C62828; }
-    .s-icon.blue  { color:#1565C0; }
+    .btn-view-payments { background: #10b981 !important; color: white !important; transition: background 0.2s; }
+    .btn-view-payments:hover { background: #059669 !important; }
 
-    /* Detail grid */
-    .detail-grid { display:grid;grid-template-columns:1fr 1fr;gap:16px; }
-    .detail-section {
-      background:#fff;border-radius:10px;padding:20px;
-      box-shadow:0 1px 4px rgba(0,0,0,.08);
-    }
-    .detail-section h3 { margin:0 0 16px;font-size:14px;font-weight:600;
-      color:#1F3864;text-transform:uppercase;letter-spacing:.5px; }
-    .detail-row { display:flex;justify-content:space-between;
-      padding:8px 0;border-bottom:1px solid #f0f0f0;font-size:14px; }
-    .detail-row span { color:#666; }
-    .detail-row b { color:#222;max-width:60%;text-align:right; }
+    .btn-move-out { background: #ef4444 !important; color: white !important; transition: background 0.2s; }
+    .btn-move-out:hover:not(:disabled) { background: #dc2626 !important; }
+    
+    .btn-move-out:disabled { background: #cbd5e1 !important; color: #94a3b8 !important; }
+
+    .content-grid { display: grid; grid-template-columns: 1fr 320px; gap: 24px; }
+    .main-info { background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 32px; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+    .info-item label { display: block; font-size: 10px; font-weight: 700; color: #94a3b8; letter-spacing: 1px; margin-bottom: 8px; }
+    .info-item .val { font-size: 15px; font-weight: 700; color: #1e293b; }
+    .text-blue { color: #3b82f6 !important; }
+    .text-green { color: #10b981 !important; }
+    .text-red { color: #ef4444 !important; }
+    .badge { padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 700; }
+    .badge.active { color: #10b981; background: #ecfdf5; }
+    .badge.pending { color: #f59e0b; background: #fffbeb; }
+    .badge.inactive { color: #ef4444; background: #fee2e2; }
+
+    .side-info { display: flex; flex-direction: column; gap: 24px; }
+    .summary-card { background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 24px; }
+    .summary-card h3 { font-size: 11px; font-weight: 700; color: #94a3b8; margin: 0 0 20px; }
+    .sum-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .sum-item label { font-size: 13px; color: #64748b; font-weight: 500; }
+    .sum-item .val { font-size: 16px; font-weight: 800; }
+
+    .standing-card { background: #f0fdf4; border-radius: 12px; border: 1px solid #dcfce7; padding: 20px; text-align: center; }
+    .standing-header { display: flex; align-items: center; justify-content: center; gap: 8px; color: #10b981; font-weight: 800; font-size: 13px; margin-bottom: 4px; }
+    .standing-header .check { font-size: 18px; width: 18px; height: 18px; }
+    .standing-card p { margin: 0; font-size: 12px; color: #10b981; font-weight: 600; opacity: 0.8; }
   `]
 })
-export class TenantDetailComponent implements OnInit {
+export class TenantDetailComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
-  private router = inject(Router);
   private tenantService = inject(TenantService);
+  private roomService = inject(RoomService);
+  private router = inject(Router);
   private cdr = inject(ChangeDetectorRef);
   private snackBar = inject(MatSnackBar);
+  private destroy$ = new Subject<void>();
 
-  tenant: TenantDetailResponse | null = null;
+  tenant: any = null;
   loading = true;
-  showForm = false;
+  error = false;
+  currentId: number | null = null;
+  showMoveOutConfirm = false;
 
-  get initials() {
-    if (!this.tenant) return '';
-    return this.tenant.fullName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2);
-  }
-
-  get statusClass() {
-    const s = this.tenant?.status;
-    return { 'badge-active': s==='ACTIVE', 'badge-pending': s==='PENDING', 'badge-inactive': s==='INACTIVE' };
-  }
-
-  ngOnInit() {
-    const id = Number(this.route.snapshot.paramMap.get('id'));
-    this.tenantService.getById(id).subscribe(t => {
-      this.tenant = t; this.loading = false; this.cdr.detectChanges();
+  ngOnInit(): void {
+    this.route.paramMap.pipe(takeUntil(this.destroy$)).subscribe(params => {
+      const id = params.get('id');
+      if (id) {
+        this.currentId = +id;
+        this.loadTenant(this.currentId);
+      }
     });
+
+    // Wire up global refresh button
+    this.roomService.refresh$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        if (this.currentId) this.loadTenant(this.currentId);
+      });
   }
 
-  goBack() { this.router.navigate(['/dashboard/tenants']); }
-  openEdit() { this.showForm = true; }
-  onEdited() {
-    this.showForm = false;
-    const id = Number(this.route.snapshot.paramMap.get('id'));
-    this.tenantService.getById(id).subscribe(t => {
-      this.tenant = t; this.cdr.detectChanges();
-      this.snackBar.open('Tenant updated!', 'OK', { duration: 3000 });
-    });
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
-  goToPayments() {
-    this.router.navigate(['/dashboard/payments'], { queryParams: { tenantId: this.tenant?.id } });
-  }
+  loadTenant(id: number): void {
+    this.loading = true;
+    this.error = false;
+    this.cdr.detectChanges(); 
 
-  confirmMoveOut() {
-    if (!this.tenant) return;
-    if (!confirm(`Move out ${this.tenant.fullName}? This will mark them INACTIVE and free their room.`)) return;
-    this.tenantService.moveOut(this.tenant.id).subscribe({
-      next: t => {
-        this.tenant = t; this.cdr.detectChanges();
-        this.snackBar.open('Tenant moved out successfully.', 'OK', { duration: 4000 });
+    this.tenantService.getById(id).subscribe({
+      next: (data) => {
+        this.tenant = data;
+        this.loading = false;
+        this.cdr.detectChanges(); 
       },
-      error: () => this.snackBar.open('Move out failed. Check server logs.', 'Close', { duration: 4000 })
+      error: (err) => {
+        console.error('Error loading tenant:', err);
+        this.loading = false;
+        this.error = true;
+        this.cdr.detectChanges();
+      }
     });
   }
+
+  onEdit(): void {
+    this.router.navigate(['/dashboard/tenants'], { queryParams: { search: this.tenant.fullName, action: 'edit', id: this.tenant.id } });
+  }
+
+  onViewPayments(): void {
+    this.router.navigate(['/dashboard/payments'], { queryParams: { search: this.tenant.fullName } });
+  }
+
+  onMoveOut(): void {
+    this.showMoveOutConfirm = true;
+  }
+
+  executeMoveOut(): void {
+    this.showMoveOutConfirm = false;
+    this.tenantService.moveOut(this.tenant.id).subscribe({
+      next: () => {
+        this.snackBar.open('Tenant moved out successfully.', 'OK', { duration: 3000 });
+        this.loadTenant(this.tenant.id);
+      },
+      error: (err) => {
+        console.error('Error moving out tenant:', err);
+        const msg = err.error?.message || 'Failed to process move out.';
+        this.snackBar.open(msg, 'Close', { duration: 5000 });
+      }
+    });
+  }
+
+  goBack(): void { this.router.navigate(['/dashboard/tenants']); }
 }

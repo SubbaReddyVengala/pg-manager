@@ -1,0 +1,124 @@
+<div class="maintenance-container">
+  <!-- Stat Cards -->
+  <div class="stats-grid">
+    <div class="stat-card open">
+      <span class="label">OPEN</span>
+      <div class="value-row">
+        <span class="value">{{stats.openCount}}</span>
+        <span class="indicator red"></span>
+      </div>
+    </div>
+    <div class="stat-card in-progress">
+      <span class="label">IN PROGRESS</span>
+      <div class="value-row">
+        <span class="value">{{stats.inProgressCount}}</span>
+        <span class="indicator blue"></span>
+      </div>
+    </div>
+    <div class="stat-card resolved">
+      <span class="label">RESOLVED</span>
+      <div class="value-row">
+        <span class="value">{{stats.resolvedCount}}</span>
+        <span class="indicator green"></span>
+      </div>
+    </div>
+    <div class="stat-card avg">
+      <span class="label">AVG RESOLUTION</span>
+      <div class="value-row">
+        <span class="value">{{stats.avgResolutionTime}}</span>
+        <span class="indicator clock"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filter & Search Toolbar -->
+  <div class="toolbar">
+    <div class="search-wrap">
+      <mat-icon>search</mat-icon>
+      <input type="text" placeholder="Search complaints..." (input)="onSearch($event)">
+    </div>
+    <div class="filter-tabs">
+      <button [class.active]="activeTab === 'ALL'" (click)="setTab('ALL')">ALL</button>
+      <button [class.active]="activeTab === 'OPEN'" (click)="setTab('OPEN')">OPEN</button>
+      <button [class.active]="activeTab === 'IN_PROGRESS'" (click)="setTab('IN_PROGRESS')">IN PROGRESS</button>
+      <button [class.active]="activeTab === 'RESOLVED'" (click)="setTab('RESOLVED')">RESOLVED</button>
+    </div>
+    <div class="spacer"></div>
+    <div class="toolbar-actions">
+      <button class="btn btn-primary main-action" (click)="openForm('TICKET')">
+        <mat-icon>add</mat-icon> Raise Ticket
+      </button>
+    </div>
+  </div>
+
+  <!-- Tickets List -->
+  <div class="tickets-list">
+    <div class="ticket-card" *ngFor="let ticket of filteredTickets">
+      <div class="ticket-icon-wrap">
+        <mat-icon [style.color]="getTicketIconColor(ticket.description)">
+          {{getTicketIcon(ticket.description)}}
+        </mat-icon>
+      </div>
+      
+      <div class="ticket-main">
+        <div class="ticket-header">
+          <h3 class="ticket-title">{{ticket.description}} — Room {{ticket.roomNumber}}</h3>
+          <span class="status-badge" [class]="ticket.status.toLowerCase()">{{ticket.status}}</span>
+        </div>
+        
+        <p class="reported-by">Reported by: {{ticket.tenantName || 'Admin'}} (Room {{ticket.roomNumber}})</p>
+        
+        <div class="ticket-footer">
+          <div class="meta-info">
+            <span class="meta-date">Raised: {{ticket.reportedAt | date:'dd-MMM-yyyy'}}</span>
+            <span class="divider">|</span>
+            <span class="priority-label" [class]="ticket.priority.toLowerCase()">Priority: <strong>{{ticket.priority}}</strong></span>
+            <span class="cost-label" *ngIf="ticket.status === 'RESOLVED'">
+              <span class="divider">|</span> Cost: <strong>₹{{ticket.cost | number}}</strong>
+            </span>
+          </div>
+          
+          <div class="card-actions">
+            <button *ngIf="ticket.status === 'OPEN'" class="action-btn start-btn" (click)="startWork(ticket.id)">
+              Start Work
+            </button>
+            <button *ngIf="ticket.status === 'IN_PROGRESS'" class="action-btn resolve-btn" (click)="resolveWork(ticket.id)">
+              Mark Resolved
+            </button>
+            <button *ngIf="ticket.status === 'OPEN'" class="action-btn close-btn">
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="empty-state" *ngIf="filteredTickets.length === 0">
+      <mat-icon>build_circle</mat-icon>
+      <p>No maintenance tickets found.</p>
+    </div>
+  </div>
+
+  <!-- Modals -->
+  <app-maintenance-form 
+    *ngIf="showForm" 
+    [type]="formType"
+    (saved)="onSaved()"
+    (cancelled)="onCancelled()">
+  </app-maintenance-form>
+
+  <!-- Input Dialog for Cost -->
+  <app-input-dialog
+    *ngIf="showCostDialog"
+    title="Resolve Ticket"
+    message="Enter repair cost (if any):"
+    placeholder="0"
+    inputType="number"
+    [inputValue]="0"
+    [isCurrency]="true"
+    icon="payments"
+    confirmText="Mark Resolved"
+    (confirm)="executeResolve($event)"
+    (cancel)="showCostDialog = false">
+  </app-input-dialog>
+</div>

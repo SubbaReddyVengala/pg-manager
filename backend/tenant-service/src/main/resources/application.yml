@@ -5,7 +5,7 @@ spring:
   application:
     name: tenant-service
   datasource:
-    url: jdbc:postgresql://localhost:5432/pgmanager?currentSchema=tenant_schema
+    url: jdbc:postgresql://127.0.0.1:5432/pgmanager?currentSchema=tenant_schema
     username: postgres
     password: postgres
     driver-class-name: org.postgresql.Driver
@@ -24,7 +24,7 @@ spring:
 
 # URL for room-service -- used by RoomServiceClient
 room-service:
-  url: http://localhost:8082
+  url: http://127.0.0.1:8082
 payment-service:
-  url: http://localhost:8084
+  url: http://127.0.0.1:8084
 

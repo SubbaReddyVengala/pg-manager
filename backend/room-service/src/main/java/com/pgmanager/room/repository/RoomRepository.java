@@ -26,4 +26,7 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
 
     // Used by dashboard stats
     long countByStatus(RoomStatus status);
+
+    @Query("SELECT COUNT(DISTINCT r.floor) FROM Room r")
+    long countDistinctFloor();
 }

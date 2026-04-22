@@ -5,7 +5,7 @@ spring:
   application:
     name: payment-service
   datasource:
-    url: jdbc:postgresql://localhost:5432/pgmanager?currentSchema=payment_schema
+    url: jdbc:postgresql://127.0.0.1:5432/pgmanager?currentSchema=payment_schema
     username: postgres
     password: postgres
     driver-class-name: org.postgresql.Driver
@@ -23,7 +23,11 @@ spring:
     default-schema: payment_schema
 
 tenant-service:
-  url: http://localhost:8083
+  url: http://127.0.0.1:8083
+
+notification:
+  service:
+    url: http://127.0.0.1:8087/notifications
 
 # Scheduler timezone — IST
 spring.task.scheduling.pool.size: 2

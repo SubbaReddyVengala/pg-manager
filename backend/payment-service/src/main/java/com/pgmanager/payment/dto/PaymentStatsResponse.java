@@ -14,4 +14,5 @@ public class PaymentStatsResponse {
     private long       dueThisWeekCount;   // '1 on Due'
     private BigDecimal depositsHeld;       // Screenshot 1: DEPOSITS HELD card
     private long       depositsCount;      // '6 Tenants'
+    private double     growthRate;
 }

@@ -59,6 +59,14 @@ public class PaymentController {
         return ResponseEntity.ok("Generated " + count + " dues for " + req.getMonth());
     }
 
+    @PostMapping("/generate-due-for-tenant")
+    public ResponseEntity<Void> generateDueForTenant(
+            @RequestParam Long tenantId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate month) {
+        paymentService.generateDueForTenant(tenantId, month);
+        return ResponseEntity.ok().build();
+    }
+
     // GET /payments/{id}/receipt  (Receipt button in Screenshot 1)
     // Returns PDF bytes for download
     @GetMapping("/{id}/receipt")

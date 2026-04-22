@@ -46,6 +46,17 @@ export class AuthService {
     return this.currentUser$.value?.accessToken ?? null;
   }
 
+  getRefreshToken(): string | null {
+    return this.currentUser$.value?.refreshToken ?? null;
+  }
+
+  refreshToken(): Observable<AuthResponse> {
+    const refreshToken = this.getRefreshToken();
+    return this.http.post<AuthResponse>(`${this.API}/refresh`, null, {
+      params: { token: refreshToken ?? '' }
+    }).pipe(tap(response => this.saveToStorage(response)));
+  }
+
   isLoggedIn(): boolean {
     return this.currentUser$.value !== null;
   }

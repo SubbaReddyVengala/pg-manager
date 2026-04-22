@@ -5,7 +5,7 @@ spring:
   application:
     name: auth-service
   datasource:
-    url: jdbc:postgresql://localhost:5432/pgmanager?currentSchema=auth_schema
+    url: jdbc:postgresql://127.0.0.1:5432/pgmanager?currentSchema=auth_schema
     username: postgres
     password: postgres
     driver-class-name: org.postgresql.Driver
@@ -23,6 +23,6 @@ spring:
     default-schema: auth_schema
 
 jwt:
-  secret: pgmanager-dev-secret-subbu-2026-min-32-chars
+  secret: ${JWT_SECRET:pgmanager-dev-secret-subbu-2026-min-32-chars}
   expiration: 900000
   refresh-expiration: 604800000

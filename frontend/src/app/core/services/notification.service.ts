@@ -1,0 +1,59 @@
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable, BehaviorSubject, timer, switchMap, shareReplay, of, catchError } from 'rxjs';
+import { environment } from '../../../environments/environment';
+
+export interface NotificationAlert {
+  id: number;
+  title: string;
+  message: string;
+  type: 'OVERDUE' | 'MAINTENANCE' | 'PAYMENT' | 'REMINDER' | 'MOVE_OUT';
+  recipient?: string;
+  tenantId?: number;
+  isRead: boolean;
+  createdAt: string;
+}
+
+@Injectable({
+  providedIn: 'root'
+})
+export class NotificationService {
+  private apiUrl = `${environment.apiUrl}/notifications`;
+  
+  private unreadCountSubject = new BehaviorSubject<number>(0);
+  unreadCount$ = this.unreadCountSubject.asObservable();
+
+  constructor(private http: HttpClient) {
+    // Poll for unread count every 30 seconds, handle errors gracefully
+    timer(0, 30000).pipe(
+      switchMap(() => this.getUnreadCount().pipe(
+        catchError(() => of(0))
+      )),
+      shareReplay(1)
+    ).subscribe(count => this.unreadCountSubject.next(count));
+  }
+
+  sendNotification(request: any): Observable<void> {
+    return this.http.post<void>(`${this.apiUrl}/send`, request);
+  }
+
+  getAlerts(): Observable<NotificationAlert[]> {
+    return this.http.get<NotificationAlert[]>(`${this.apiUrl}/alerts`).pipe(
+      catchError(() => of([]))
+    );
+  }
+
+  getUnreadCount(): Observable<number> {
+    return this.http.get<number>(`${this.apiUrl}/unread-count`);
+  }
+
+  markAllRead(): Observable<void> {
+    return this.http.post<void>(`${this.apiUrl}/mark-read`, {}).pipe(
+      switchMap(() => {
+        this.unreadCountSubject.next(0);
+        return of(undefined);
+      }),
+      catchError(() => of(undefined))
+    ) as unknown as Observable<void>;
+  }
+}

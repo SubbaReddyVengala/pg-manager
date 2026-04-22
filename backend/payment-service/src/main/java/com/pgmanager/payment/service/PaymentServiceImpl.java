@@ -24,35 +24,29 @@ public class PaymentServiceImpl implements PaymentService {
 
     private final PaymentRepository     paymentRepository;
     private final TenantServiceClient   tenantClient;
+    private final com.pgmanager.payment.client.NotificationServiceClient notificationClient;
 
-    // ── Get payments for a month (with optional status filter) ───────────
     @Override
     public List<PaymentResponse> getPaymentsByMonth(LocalDate month, PaymentStatus status) {
         LocalDate firstOfMonth = month.withDayOfMonth(1);
         List<RentPayment> payments = status != null
                 ? paymentRepository.findByRentMonthAndStatus(firstOfMonth, status)
                 : paymentRepository.findByRentMonth(firstOfMonth);
-        // Refresh overdue status before returning
         payments.forEach(this::refreshOverdueStatus);
         return payments.stream().map(this::toResponse).collect(Collectors.toList());
     }
 
-    // ── Record a payment ─────────────────────────────────────────────────
     @Override
     public PaymentResponse recordPayment(PaymentRequest req) {
         LocalDate firstOfMonth = req.getRentMonth().withDayOfMonth(1);
-
-        // Find existing due or throw
         RentPayment payment = paymentRepository
                 .findByTenantIdAndRentMonth(req.getTenantId(), firstOfMonth)
-                .orElseThrow(() -> new RuntimeException(
-                        "No due found for this tenant and month. Generate dues first."));
+                .orElseThrow(() -> new RuntimeException("No due found for this tenant and month. Generate dues first."));
 
         if (payment.getStatus() == PaymentStatus.PAID) {
             throw new RuntimeException("This month is already fully paid.");
         }
 
-        // Add to existing amount paid (supports multiple partial payments)
         BigDecimal totalPaid = payment.getAmountPaid().add(req.getAmountPaid());
         BigDecimal balance   = payment.getRentAmount().subtract(totalPaid);
 
@@ -67,32 +61,54 @@ public class PaymentServiceImpl implements PaymentService {
         payment.setTransactionId(req.getTransactionId());
         payment.setNote(req.getNote());
 
-        // Set status based on amount paid
         if (balance.compareTo(BigDecimal.ZERO) <= 0) {
             payment.setStatus(PaymentStatus.PAID);
         } else {
             payment.setStatus(PaymentStatus.PARTIAL);
         }
 
-        // Generate receipt number if fully paid
         if (payment.getStatus() == PaymentStatus.PAID && payment.getReceiptNumber() == null) {
             payment.setReceiptNumber(generateReceiptNumber(payment));
         }
 
-        return toResponse(paymentRepository.save(payment));
+        RentPayment saved = paymentRepository.save(payment);
+
+        // Send payment confirmation notification
+        TenantServiceClient.TenantInfo tenant = tenantClient.getTenant(payment.getTenantId());
+        if (tenant != null) {
+            notificationClient.send(com.pgmanager.payment.client.NotificationServiceClient.NotificationRequest.builder()
+                .tenantId(tenant.getId())
+                .recipient(tenant.getEmail())
+                .subject("Payment Received — " + tenant.getFullName())
+                .message(String.format("₹%s received via %s for %s. Receipt #%s generated.", 
+                        req.getAmountPaid(), req.getPaymentMode(), 
+                        payment.getRentMonth().format(DateTimeFormatter.ofPattern("MMMM yyyy")),
+                        saved.getReceiptNumber()))
+                .type("BOTH")
+                .build());
+        }
+
+        return toResponse(saved);
     }
 
-    // ── Stats for a month (4 stat cards in Screenshot 1) ─────────────────
     @Override
     public PaymentStatsResponse getStats(LocalDate month) {
         LocalDate firstOfMonth = month.withDayOfMonth(1);
-
         BigDecimal collected  = paymentRepository.sumCollectedByMonth(firstOfMonth);
         BigDecimal outstanding = paymentRepository.sumOutstandingByMonth(firstOfMonth);
         long collectedCount   = paymentRepository.countByRentMonthAndStatus(firstOfMonth, PaymentStatus.PAID);
         long overdueCount     = paymentRepository.countByRentMonthAndStatus(firstOfMonth, PaymentStatus.OVERDUE);
 
-        // Due this week calculation
+        // Calculate Growth Rate
+        LocalDate prevMonth = firstOfMonth.minusMonths(1);
+        BigDecimal prevCollected = paymentRepository.sumCollectedByMonth(prevMonth);
+        double growth = 0.0;
+        if (prevCollected != null && prevCollected.compareTo(BigDecimal.ZERO) > 0) {
+            growth = collected.subtract(prevCollected)
+                    .divide(prevCollected, 4, java.math.RoundingMode.HALF_UP)
+                    .multiply(new BigDecimal("100")).doubleValue();
+        }
+
         LocalDate today = LocalDate.now();
         LocalDate weekEnd = today.plusDays(7);
         List<RentPayment> dueThisWeek = paymentRepository.findDueThisWeek(
@@ -101,7 +117,6 @@ public class PaymentServiceImpl implements PaymentService {
                 .map(RentPayment::getRentAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        // Deposits held = sum of security deposits of all active tenants
         BigDecimal depositsHeld = tenantClient.getTotalDeposits();
         long depositsCount = tenantClient.getActiveTenantsCount();
 
@@ -114,17 +129,16 @@ public class PaymentServiceImpl implements PaymentService {
                 .dueThisWeekCount(dueThisWeek.size())
                 .depositsHeld(depositsHeld)
                 .depositsCount(depositsCount)
+                .growthRate(growth)
                 .build();
     }
 
-    // ── Payment history for a tenant (detail page) ───────────────────────
     @Override
     public List<PaymentResponse> getPaymentsByTenant(Long tenantId) {
         return paymentRepository.findByTenantIdOrderByRentMonthDesc(tenantId)
                 .stream().map(this::toResponse).collect(Collectors.toList());
     }
 
-    // ── Generate dues for all active tenants for a given month ───────────
     @Override
     public int generateDues(LocalDate month) {
         LocalDate firstOfMonth = month.withDayOfMonth(1);
@@ -132,7 +146,6 @@ public class PaymentServiceImpl implements PaymentService {
         if (tenants == null) return 0;
         int count = 0;
         for (TenantServiceClient.TenantInfo t : tenants) {
-            // Idempotency — skip if already generated
             if (paymentRepository.findByTenantIdAndRentMonth(t.getId(), firstOfMonth).isPresent()) {
                 continue;
             }
@@ -148,12 +161,55 @@ public class PaymentServiceImpl implements PaymentService {
                     .status(PaymentStatus.PENDING)
                     .build();
             paymentRepository.save(due);
+            
+            // Send rent due notification
+            notificationClient.send(com.pgmanager.payment.client.NotificationServiceClient.NotificationRequest.builder()
+                .tenantId(t.getId())
+                .recipient(t.getEmail())
+                .subject("Rent Due Reminder — " + t.getFullName())
+                .message(String.format("Rent of ₹%s for %s is now due. Please pay by the 5th to avoid late fees.", 
+                        t.getMonthlyRent(), firstOfMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy"))))
+                .type("BOTH")
+                .build());
+                
             count++;
         }
         return count;
     }
 
-    // ── Generate PDF Receipt (iText7) ────────────────────────────────────
+    @Override
+    public void generateDueForTenant(Long tenantId, LocalDate month) {
+        LocalDate firstOfMonth = month.withDayOfMonth(1);
+        if (paymentRepository.findByTenantIdAndRentMonth(tenantId, firstOfMonth).isPresent()) {
+            return;
+        }
+        TenantServiceClient.TenantInfo t = tenantClient.getTenant(tenantId);
+        if (t == null) return;
+
+        RentPayment due = RentPayment.builder()
+                .tenantId(t.getId())
+                .tenantName(t.getFullName())
+                .roomId(t.getRoomId())
+                .roomNumber(t.getRoomNumber())
+                .rentMonth(firstOfMonth)
+                .rentAmount(t.getMonthlyRent())
+                .amountPaid(BigDecimal.ZERO)
+                .balance(t.getMonthlyRent())
+                .status(PaymentStatus.PENDING)
+                .build();
+        paymentRepository.save(due);
+
+        // Send rent due notification
+        notificationClient.send(com.pgmanager.payment.client.NotificationServiceClient.NotificationRequest.builder()
+            .tenantId(t.getId())
+            .recipient(t.getEmail())
+            .subject("Rent Due Reminder — " + t.getFullName())
+            .message(String.format("Rent of ₹%s for %s is now due.", 
+                    t.getMonthlyRent(), firstOfMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy"))))
+            .type("BOTH")
+            .build());
+    }
+
     @Override
     public byte[] generateReceipt(Long paymentId) {
         RentPayment p = paymentRepository.findById(paymentId)
@@ -163,66 +219,111 @@ public class PaymentServiceImpl implements PaymentService {
         PdfWriter writer   = new PdfWriter(baos);
         PdfDocument pdf    = new PdfDocument(writer);
         Document document  = new Document(pdf);
-
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd MMMM yyyy");
+        
+        // Modern Color Palette
+        com.itextpdf.kernel.colors.DeviceRgb slate800 = new com.itextpdf.kernel.colors.DeviceRgb(30, 41, 59);
+        com.itextpdf.kernel.colors.DeviceRgb slate500 = new com.itextpdf.kernel.colors.DeviceRgb(100, 116, 139);
+        com.itextpdf.kernel.colors.DeviceRgb slate50  = new com.itextpdf.kernel.colors.DeviceRgb(248, 250, 252);
+        com.itextpdf.kernel.colors.DeviceRgb emerald  = new com.itextpdf.kernel.colors.DeviceRgb(16, 185, 129);
 
-        // Header
-        document.add(new Paragraph("PG MANAGER")
-                .setTextAlignment(TextAlignment.CENTER)
-                .setFontSize(14).setBold().setFontColor(ColorConstants.DARK_GRAY));
-        document.add(new Paragraph("Rent Receipt")
-                .setTextAlignment(TextAlignment.CENTER)
-                .setFontSize(12).setBold());
+        // 1. Top Header Bar (Branding)
+        Table headerBar = new Table(1).useAllAvailableWidth();
+        headerBar.setBackgroundColor(slate800);
+        headerBar.addCell(new Cell().add(new Paragraph("PG MANAGER").setFontSize(14).setBold().setFontColor(ColorConstants.WHITE).setMarginLeft(20))
+                .setPaddingTop(15).setPaddingBottom(15).setBorder(com.itextpdf.layout.borders.Border.NO_BORDER));
+        document.add(headerBar);
 
-        // Amount
-        document.add(new Paragraph("\u20B9" + p.getAmountPaid())
-                .setTextAlignment(TextAlignment.CENTER)
-                .setFontSize(28).setBold().setFontColor(ColorConstants.GREEN));
+        // 2. Receipt Info (Right Aligned)
+        Paragraph receiptTitle = new Paragraph("OFFICIAL RENT RECEIPT")
+                .setFontSize(10).setBold().setFontColor(slate500)
+                .setTextAlignment(TextAlignment.RIGHT).setMarginTop(20);
+        document.add(receiptTitle);
 
-        document.add(new Paragraph("\n"));
+        // 3. Hero Section: Amount & Status
+        Table hero = new Table(2).useAllAvailableWidth().setMarginTop(20);
+        
+        // Amount with currency symbol
+        Cell amountCell = new Cell().add(new Paragraph("₹ " + p.getAmountPaid().setScale(2))
+                .setFontSize(32).setBold().setFontColor(slate800))
+                .setBorder(com.itextpdf.layout.borders.Border.NO_BORDER);
+        
+        // Status Stamp
+        Cell statusCell = new Cell().add(new Paragraph("PAID")
+                .setFontSize(12).setBold().setFontColor(ColorConstants.WHITE)
+                .setPaddingLeft(20).setPaddingRight(20).setPaddingTop(5).setPaddingBottom(5)
+                .setBackgroundColor(emerald))
+                .setTextAlignment(TextAlignment.RIGHT).setVerticalAlignment(com.itextpdf.layout.properties.VerticalAlignment.MIDDLE)
+                .setBorder(com.itextpdf.layout.borders.Border.NO_BORDER);
+        
+        hero.addCell(amountCell);
+        hero.addCell(statusCell);
+        document.add(hero);
 
-        // Details table
-        Table table = new Table(2).useAllAvailableWidth();
-        addRow(table, "Tenant",  p.getTenantName());
-        addRow(table, "Room",    p.getRoomNumber());
-        addRow(table, "Month",   p.getRentMonth().format(DateTimeFormatter.ofPattern("MMMM yyyy")));
-        addRow(table, "Paid On", p.getPaymentDate() != null ? p.getPaymentDate().format(fmt) : "-");
-        addRow(table, "Mode",    p.getPaymentMode() != null ? p.getPaymentMode().name() : "-");
-        addRow(table, "Txn ID",  p.getTransactionId() != null ? p.getTransactionId() : "-");
-        document.add(table);
+        document.add(new Paragraph("Generated for " + p.getRentMonth().format(DateTimeFormatter.ofPattern("MMMM yyyy")) + " Rent")
+                .setFontSize(11).setFontColor(slate500).setMarginBottom(40));
 
-        // Footer
-        document.add(new Paragraph("\n"));
-        document.add(new Paragraph(
-                (p.getReceiptNumber() != null ? p.getReceiptNumber() : "") +
-                        "  |  PG Manager System")
-                .setTextAlignment(TextAlignment.CENTER).setFontSize(9)
-                .setFontColor(ColorConstants.GRAY));
-        document.add(new Paragraph("This is a computer generated receipt.")
-                .setTextAlignment(TextAlignment.CENTER).setFontSize(9)
-                .setFontColor(ColorConstants.GRAY));
+        // 4. Details Section (Modern Grid)
+        Table details = new Table(2).useAllAvailableWidth();
+        details.setBackgroundColor(slate50);
+        details.setPadding(20);
+        
+        addPremiumRow(details, "TENANT DETAILS", p.getTenantName(), slate500, slate800);
+        addPremiumRow(details, "ROOM INFORMATION", "Room " + p.getRoomNumber(), slate500, slate800);
+        addPremiumRow(details, "PAYMENT METHOD", p.getPaymentMode() != null ? p.getPaymentMode().name() : "CASH", slate500, slate800);
+        addPremiumRow(details, "TRANSACTION REF", p.getTransactionId() != null ? p.getTransactionId() : "N/A", slate500, slate800);
+        addPremiumRow(details, "DATE OF PAYMENT", p.getPaymentDate() != null ? p.getPaymentDate().format(fmt) : "-", slate500, slate800);
+        
+        document.add(details);
+
+        // 5. Footer with Disclaimer
+        document.add(new Paragraph("\n\n\n\n"));
+        document.add(new LineSeparator(new com.itextpdf.kernel.pdf.canvas.draw.SolidLine(0.5f)).setOpacity(0.1f));
+        
+        Table footer = new Table(2).useAllAvailableWidth().setMarginTop(10);
+        footer.addCell(new Cell().add(new Paragraph("Receipt No: " + (p.getReceiptNumber() != null ? p.getReceiptNumber() : "N/A"))
+                .setFontSize(8).setFontColor(slate500))
+                .setBorder(com.itextpdf.layout.borders.Border.NO_BORDER));
+        
+        footer.addCell(new Cell().add(new Paragraph("Thank you for staying with us!")
+                .setFontSize(8).setItalic().setFontColor(slate500).setTextAlignment(TextAlignment.RIGHT))
+                .setBorder(com.itextpdf.layout.borders.Border.NO_BORDER));
+        
+        document.add(footer);
+        
+        document.add(new Paragraph("This is a digitally generated receipt. No physical signature required.")
+                .setFontSize(7).setFontColor(slate500).setTextAlignment(TextAlignment.CENTER).setMarginTop(20));
 
         document.close();
         return baos.toByteArray();
     }
 
-    // ── Private Helpers ───────────────────────────────────────────────────
+    private void addPremiumRow(Table table, String label, String value, com.itextpdf.kernel.colors.DeviceRgb labelCol, com.itextpdf.kernel.colors.DeviceRgb valCol) {
+        table.addCell(new Cell().add(new Paragraph(label).setFontSize(7).setBold().setFontColor(labelCol).setCharacterSpacing(1f))
+                .setPaddingLeft(20).setPaddingTop(15).setPaddingBottom(15).setBorder(com.itextpdf.layout.borders.Border.NO_BORDER)
+                .setBorderBottom(new com.itextpdf.layout.borders.SolidBorder(new com.itextpdf.kernel.colors.DeviceRgb(241, 245, 249), 1f)));
+        
+        table.addCell(new Cell().add(new Paragraph(value).setFontSize(10).setBold().setFontColor(valCol))
+                .setPaddingRight(20).setPaddingTop(15).setPaddingBottom(15).setTextAlignment(TextAlignment.RIGHT).setBorder(com.itextpdf.layout.borders.Border.NO_BORDER)
+                .setBorderBottom(new com.itextpdf.layout.borders.SolidBorder(new com.itextpdf.kernel.colors.DeviceRgb(241, 245, 249), 1f)));
+    }
+
     private void addRow(Table table, String label, String value) {
+        // (This old method is no longer used but kept for internal calls if any)
         table.addCell(new Cell().add(new Paragraph(label).setBold().setFontSize(10)));
         table.addCell(new Cell().add(new Paragraph(value).setFontSize(10)));
     }
 
     private String generateReceiptNumber(RentPayment p) {
         int year = p.getRentMonth().getYear();
-        long seq = paymentRepository.count(); // simple sequence
+        long seq = paymentRepository.count();
         return String.format("RCP-%d-%04d", year, seq);
     }
 
     private void refreshOverdueStatus(RentPayment p) {
         if (p.getStatus() == PaymentStatus.PENDING) {
             LocalDate today   = LocalDate.now();
-            LocalDate dueDate = p.getRentMonth().withDayOfMonth(
-                    Math.min(28, p.getRentMonth().lengthOfMonth()));
+            LocalDate dueDate = p.getRentMonth().withDayOfMonth(Math.min(28, p.getRentMonth().lengthOfMonth()));
             if (today.isAfter(dueDate)) {
                 p.setStatus(PaymentStatus.OVERDUE);
                 paymentRepository.save(p);

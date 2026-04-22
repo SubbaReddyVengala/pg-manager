@@ -11,5 +11,6 @@ public interface PaymentService {
     PaymentStatsResponse   getStats(LocalDate month);
     List<PaymentResponse>  getPaymentsByTenant(Long tenantId);
     int                    generateDues(LocalDate month);   // returns count generated
+    void                   generateDueForTenant(Long tenantId, LocalDate month);
     byte[]                 generateReceipt(Long paymentId); // returns PDF bytes
 }

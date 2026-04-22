@@ -14,4 +14,5 @@ public interface RoomService {
     RoomStatsResponse   getStats();
     RoomResponse incrementOccupancy(Long id);
     RoomResponse decrementOccupancy(Long id);
+    boolean existsByRoomNumber(String roomNumber);
 }

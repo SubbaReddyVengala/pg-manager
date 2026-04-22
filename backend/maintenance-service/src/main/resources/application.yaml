@@ -1,0 +1,40 @@
+server:
+  port: 8089
+
+spring:
+  application:
+    name: maintenance-service
+  datasource:
+    url: jdbc:postgresql://127.0.0.1:5432/pgmanager?currentSchema=maintenance_schema
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        default_schema: maintenance_schema
+  flyway:
+    enabled: true
+    schemas: maintenance_schema
+    locations: classpath:db/migration
+    default-schema: maintenance_schema
+
+# Service URLs for inter-service communication
+room-service:
+  url: http://127.0.0.1:8082
+tenant-service:
+  url: http://127.0.0.1:8083
+payment-service:
+  url: http://127.0.0.1:8084
+notification:
+  service:
+    url: http://127.0.0.1:8087/notifications
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health

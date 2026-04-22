@@ -12,4 +12,5 @@ public interface TenantService {
     TenantResponse        assignRoom(Long id, AssignRoomRequest request);
     TenantResponse        moveOut(Long id, MoveOutRequest request);
     TenantStatsResponse   getStats();
+    List<TenantResponse>  getTenantsByRoom(Long roomId);
 }

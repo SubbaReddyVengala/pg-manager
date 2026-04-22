@@ -1,11 +1,15 @@
-import { Component, OnInit, HostListener } from '@angular/core';
-import { Router, RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
+import { Component, OnInit, HostListener, inject, ChangeDetectorRef } from '@angular/core';
+import { Router, RouterOutlet, RouterLink, RouterLinkActive, ActivatedRoute, NavigationEnd } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDividerModule } from '@angular/material/divider';
 import { AuthService } from '../../core/services/auth.service';
 import { RoomService } from '../../core/services/room.service';
+import { NotificationService } from '../../core/services/notification.service';
+import { MaintenanceService } from '../../core/services/maintenance.service';
+import { SettingsService } from '../../core/services/settings.service';
+import { filter, map, Subject, takeUntil } from 'rxjs';
 
 interface NavItem {
   label: string;
@@ -37,9 +41,9 @@ interface NavItem {
 
         <!-- Brand -->
         <div class="brand">
-          <div class="brand-avatar">PG</div>
+          <div class="brand-avatar">{{ brandInitial }}</div>
           <div>
-            <span class="brand-name">PG Manager</span>
+            <span class="brand-name">{{ pgName }}</span>
             <span class="brand-sub">Management System</span>
           </div>
         </div>
@@ -72,7 +76,7 @@ interface NavItem {
               {{item.icon}}
             </mat-icon>
             <span class="nav-label">{{item.label}}</span>
-            <span class="badge" *ngIf="item.badge">{{item.badge}}</span>
+            <span class="badge" *ngIf="getBadgeCount(item)">{{getBadgeCount(item)}}</span>
           </a>
 
         </div>
@@ -266,6 +270,11 @@ export class DashboardComponent implements OnInit {
   userEmail    = '';
   userRole     = '';
   userInitial  = 'U';
+  pgName       = 'PG Manager';
+  brandInitial = 'PG';
+  unreadCount  = 0;
+  openMaintenanceCount = 0;
+  private destroy$ = new Subject<void>();
 
   mainNav: NavItem[] = [
     { label:'Dashboard', icon:'dashboard',    route:'/dashboard',          color:'#3B82F6', exact:true  },
@@ -276,16 +285,21 @@ export class DashboardComponent implements OnInit {
   ];
 
   moreNav: NavItem[] = [
-    { label:'Maintenance',   icon:'build',         route:'/dashboard/complaints', color:'#EF4444', badge:3 },
+    { label:'Maintenance',   icon:'build',         route:'/dashboard/maintenance', color:'#EF4444' },
     { label:'Expenses',      icon:'receipt_long',  route:'/dashboard/expenses',   color:'#F97316' },
-    { label:'Notifications', icon:'notifications', route:'/dashboard/settings',   color:'#A855F7', badge:2 },
+    { label:'Notifications', icon:'notifications', route:'/dashboard/notifications', color:'#A855F7' },
     { label:'Settings',      icon:'settings',      route:'/dashboard/settings',   color:'#6B7280' },
   ];
 
   constructor(
     private auth:        AuthService,
     private router:      Router,
-    private roomService: RoomService   // ✅ injected for refresh
+    private route:       ActivatedRoute,
+    private roomService: RoomService,
+    private notifService: NotificationService,
+    private maintenanceService: MaintenanceService,
+    private settingsService: SettingsService,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
@@ -294,9 +308,70 @@ export class DashboardComponent implements OnInit {
     this.userEmail   = this.auth.getCurrentUserEmail();
     this.userRole    = this.auth.getUserRole();
     this.userInitial = this.userName.charAt(0).toUpperCase() || 'U';
-    const now = new Date();
-    this.pageSubtitle = now.toLocaleString('default', { month:'long' })
-                        + ' ' + now.getFullYear() + ' \u2014 Hub Overview';
+    
+    this.loadUnreadCount();
+    this.loadMaintenanceCount();
+    this.listenToRouteChanges();
+
+    // PG Name listener
+    this.settingsService.pgName$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(name => {
+        console.log('Dashboard received new PG name:', name);
+        this.pgName = name;
+        this.brandInitial = name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+        this.cdr.detectChanges();
+      });
+
+    // Maintenance refresh listener
+    this.maintenanceService.refresh$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        this.loadMaintenanceCount();
+      });
+  }
+
+  listenToRouteChanges(): void {
+    this.router.events.pipe(
+      filter(event => event instanceof NavigationEnd),
+      map(() => {
+        let child = this.route.firstChild;
+        while (child?.firstChild) {
+          child = child.firstChild;
+        }
+        return child?.snapshot.data;
+      })
+    ).subscribe(data => {
+      if (data) {
+        this.pageTitle = data['title'] || 'Dashboard';
+        this.pageSubtitle = data['subtitle'] || '';
+      }
+    });
+
+    // Initial load
+    const data = this.route.snapshot.firstChild?.data;
+    if (data) {
+      this.pageTitle = data['title'] || 'Dashboard';
+      this.pageSubtitle = data['subtitle'] || '';
+    }
+  }
+
+  loadUnreadCount(): void {
+    this.notifService.getUnreadCount().subscribe(count => {
+      this.unreadCount = count;
+    });
+  }
+
+  loadMaintenanceCount(): void {
+    this.maintenanceService.getStats().subscribe(stats => {
+      this.openMaintenanceCount = stats.openCount;
+    });
+  }
+
+  getBadgeCount(item: NavItem): number {
+    if (item.label === 'Notifications') return this.unreadCount;
+    if (item.label === 'Maintenance') return this.openMaintenanceCount;
+    return item.badge || 0;
   }
 
   @HostListener('window:resize')
@@ -310,6 +385,7 @@ export class DashboardComponent implements OnInit {
   // ✅ Refresh button handler — triggers reload in active page
   onRefresh(): void {
     this.roomService.triggerRefresh();
+    this.loadUnreadCount();
   }
 
   logout(): void { this.auth.logout(); }
