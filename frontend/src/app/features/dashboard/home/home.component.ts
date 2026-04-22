@@ -17,53 +17,63 @@ Chart.register(...registerables);
   template: `
     <div class="dashboard-home">
       
-      <!-- TOP STATS -->
-      <div class="stats-row" *ngIf="summary">
-        <div class="stat-card total">
-          <div class="st-label">TOTAL ROOMS <mat-icon class="st-icon">home</mat-icon></div>
-          <div class="st-val">{{ summary.totalRooms }}</div>
-          <div class="st-sub">{{ summary.floorCount }} floors</div>
+      <!-- TOP STATS: 2x3 Grid for better balance -->
+      <div class="stats-grid" *ngIf="summary">
+        <div class="stat-card">
+          <div class="st-label">OCCUPANCY <mat-icon>analytics</mat-icon></div>
+          <div class="st-val">{{ summary.occupancyRate }}%</div>
+          <div class="st-sub" [class.up]="summary.occupancyRate >= 80">
+            {{ summary.occupiedRooms }} / {{ summary.totalRooms }} beds occupied
+          </div>
         </div>
-        <div class="stat-card occupied">
-          <div class="st-label">OCCUPIED <mat-icon class="st-icon">vpn_key</mat-icon></div>
-          <div class="st-val">{{ summary.occupiedRooms }}</div>
-          <div class="st-trend up">↑ {{ summary.occupancyRate }}% rate</div>
-        </div>
-        <div class="stat-card maintenance">
-          <div class="st-label">MAINTENANCE <mat-icon class="st-icon">build</mat-icon></div>
-          <div class="st-val">{{ summary.maintenanceRooms }}</div>
-          <div class="st-sub">{{ summary.openMaintenanceTickets }} open tickets</div>
-        </div>
-        <div class="stat-card tenants">
-          <div class="st-label">ACTIVE TENANTS <mat-icon class="st-icon">groups</mat-icon></div>
+        <div class="stat-card">
+          <div class="st-label">ACTIVE TENANTS <mat-icon>groups</mat-icon></div>
           <div class="st-val">{{ summary.activeTenants }}</div>
-          <div class="st-sub">{{ summary.pendingTenants }} pending</div>
+          <div class="st-sub">{{ summary.pendingTenants }} joining soon</div>
         </div>
-        <div class="stat-card collected">
-          <div class="st-label">COLLECTED <mat-icon class="st-icon">payments</mat-icon></div>
+        <div class="stat-card">
+          <div class="st-label">COLLECTED <mat-icon>payments</mat-icon></div>
           <div class="st-val">₹{{ summary.monthlyRevenue | number }}</div>
-          <div class="st-trend up">↑ {{ summary.revenueGrowthRate }}% vs last mo</div>
+          <div class="st-sub up">↑ {{ summary.revenueGrowthRate }}% from last mo</div>
         </div>
-        <div class="stat-card outstanding">
-          <div class="st-label">OUTSTANDING <mat-icon class="st-icon">warning</mat-icon></div>
-          <div class="st-val">₹{{ summary.outstandingAmount | number }}</div>
-          <div class="st-sub overdue">{{ summary.overduePaymentsCount }} overdue</div>
+        <div class="stat-card">
+          <div class="st-label">PENDING DUE <mat-icon>warning</mat-icon></div>
+          <div class="st-val text-red">₹{{ summary.outstandingAmount | number }}</div>
+          <div class="st-sub text-red">{{ summary.overduePaymentsCount }} payments overdue</div>
+        </div>
+        <div class="stat-card">
+          <div class="st-label">MAINTENANCE <mat-icon>build</mat-icon></div>
+          <div class="st-val">{{ summary.maintenanceRooms }}</div>
+          <div class="st-sub text-orange">{{ summary.openMaintenanceTickets }} open tickets</div>
+        </div>
+        <div class="stat-card">
+          <div class="st-label">TOTAL FLOORS <mat-icon>layers</mat-icon></div>
+          <div class="st-val">{{ summary.floorCount }}</div>
+          <div class="st-sub">{{ summary.totalRooms }} total rooms</div>
         </div>
       </div>
 
       <!-- MAIN CONTENT GRID -->
       <div class="main-grid" *ngIf="summary">
         <div class="charts-col">
-          <!-- OCCUPANCY BAR SECTION -->
-          <div class="chart-card occupancy-section">
-            <h3>Occupancy Rate — {{ currentMonthLabel }}</h3>
-            <div class="occ-hero">
-              <span class="occ-pct">{{ summary.occupancyRate }}%</span>
-              <span class="occ-badge" [class.warn]="summary.occupancyRate < 50">
-                {{ summary.occupancyRate >= 70 ? 'Excellent' : (summary.occupancyRate >= 50 ? 'Good' : 'Low') }} 
-                {{ summary.occupancyRate >= 50 ? '↑' : '↓' }}
-              </span>
+          <!-- INCOME TREND SECTION: Now Vertical -->
+          <div class="chart-card trend-section">
+            <div class="card-header">
+              <h3>Monthly Revenue Trend</h3>
+              <span class="period-label">Last 6 Months</span>
             </div>
+            <div class="chart-wrap">
+              <canvas baseChart
+                [data]="barChartData"
+                [options]="barChartOptions"
+                [type]="barChartType">
+              </canvas>
+            </div>
+          </div>
+
+          <!-- OCCUPANCY BREAKDOWN -->
+          <div class="chart-card occupancy-section">
+            <h3>Occupancy Status</h3>
             <div class="progress-container">
               <div class="progress-bar">
                 <div class="bar-fill occupied" [style.width]="(summary.occupiedRooms / summary.totalRooms * 100) + '%'"></div>
@@ -73,68 +83,41 @@ Chart.register(...registerables);
               <div class="progress-legend">
                 <span class="leg-item"><span class="dot green"></span> {{ summary.occupiedRooms }} Occupied</span>
                 <span class="leg-item"><span class="dot blue"></span> {{ summary.availableRooms }} Available</span>
-                <span class="leg-item"><span class="dot orange"></span> {{ summary.maintenanceRooms }} Maintenance</span>
+                <span class="leg-item"><span class="dot orange"></span> {{ summary.maintenanceRooms }} Repair</span>
               </div>
-            </div>
-          </div>
-
-          <!-- INCOME TREND SECTION -->
-          <div class="chart-card trend-section">
-            <h3>Monthly Income Trend</h3>
-            <div class="chart-wrap">
-              <canvas baseChart
-                [data]="barChartData"
-                [options]="barChartOptions"
-                [type]="barChartType">
-              </canvas>
             </div>
           </div>
         </div>
 
-        <!-- SIDEBAR SUMMARY -->
+        <!-- ACTION QUEUE (Replacing redundant summary) -->
         <div class="summary-col">
-          <div class="quick-summary-card">
-            <h3>Quick Summary</h3>
-            <div class="summary-list">
-              <div class="sum-item">
-                <span class="leg-item"><span class="dot blue"></span> Total Rooms</span>
-                <strong>{{ summary.totalRooms }}</strong>
-              </div>
-              <div class="sum-item">
-                <span class="leg-item"><span class="dot green"></span> Occupied</span>
-                <strong class="text-green">{{ summary.occupiedRooms }}</strong>
-              </div>
-              <div class="sum-item">
-                <span class="leg-item"><span class="dot light-blue"></span> Available</span>
-                <strong class="text-blue">{{ summary.availableRooms }}</strong>
-              </div>
-              <div class="sum-item">
-                <span class="leg-item"><span class="dot orange"></span> Maintenance</span>
-                <strong class="text-orange">{{ summary.maintenanceRooms }}</strong>
-              </div>
-              <div class="sum-divider"></div>
-              <div class="sum-item">
-                <span class="leg-item"><span class="dot purple"></span> Active Tenants</span>
-                <strong>{{ summary.activeTenants }}</strong>
-              </div>
-              <div class="sum-item">
-                <span class="leg-item"><span class="dot green"></span> Collected</span>
-                <strong class="text-green">₹{{ summary.monthlyRevenue | number }}</strong>
-              </div>
-              <div class="sum-item">
-                <span class="leg-item"><span class="dot red"></span> Outstanding</span>
-                <strong class="text-red">₹{{ summary.outstandingAmount | number }}</strong>
-              </div>
-              <div class="sum-item">
-                <span class="leg-item"><span class="dot amber"></span> Open Tickets</span>
-                <strong class="text-orange">{{ summary.openMaintenanceTickets }}</strong>
-              </div>
-            </div>
+          <div class="action-queue-card">
+            <h3>Today's Action Queue</h3>
             
-            <div class="alerts-section" *ngIf="dues.length > 0">
-              <div class="alert-box" *ngFor="let d of dues">
-                <mat-icon>warning</mat-icon>
-                <span>{{ d.tenantName }} (Room {{ d.roomNumber }}) rent overdue by {{ d.daysOverdue }} days</span>
+            <div class="empty-actions" *ngIf="dues.length === 0 && summary.openMaintenanceTickets === 0">
+              <mat-icon>check_circle</mat-icon>
+              <p>Everything is up to date!</p>
+            </div>
+
+            <div class="action-list">
+              <!-- Overdue Payments -->
+              <div class="action-item overdue" *ngFor="let d of dues">
+                <div class="action-icon"><mat-icon>priority_high</mat-icon></div>
+                <div class="action-body">
+                  <span class="action-title">Rent Overdue: {{ d.tenantName }}</span>
+                  <span class="action-desc">Room {{ d.roomNumber }} · {{ d.daysOverdue }} days late</span>
+                </div>
+                <button class="action-btn">Remind</button>
+              </div>
+
+              <!-- Maintenance Alerts -->
+              <div class="action-item maintenance" *ngIf="summary.openMaintenanceTickets > 0">
+                <div class="action-icon"><mat-icon>build</mat-icon></div>
+                <div class="action-body">
+                  <span class="action-title">Maintenance Tickets</span>
+                  <span class="action-desc">{{ summary.openMaintenanceTickets }} items need attention</span>
+                </div>
+                <button class="action-btn">View</button>
               </div>
             </div>
           </div>
@@ -143,94 +126,116 @@ Chart.register(...registerables);
 
       <!-- LOADING OVERLAY -->
       <div class="loading-wrap" *ngIf="loading">
-        <mat-spinner diameter="40"></mat-spinner>
-        <p>Updating real-time stats...</p>
+        <mat-spinner diameter="32"></mat-spinner>
+        <p>Syncing Dashboard...</p>
       </div>
     </div>
   `,
   styles: [`
-    .dashboard-home { padding: 8px 0 24px; background: #f8fafc; min-height: 100vh; font-family: 'Inter', sans-serif; }
+    .dashboard-home { padding: 0; background: #f8fafc; min-height: 100vh; }
     
-    /* Stat Cards Styles */
-    .stats-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; margin-bottom: 32px; }
-    .stat-card { background: white; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border-top: 4px solid #94a3b8; }
+    /* Stats Grid: 2x3 balanced layout */
+    .stats-grid { 
+      display: grid; 
+      grid-template-columns: repeat(3, 1fr); 
+      gap: 20px; 
+      margin-bottom: 24px; 
+    }
+    .stat-card { 
+      background: white; 
+      padding: 24px; 
+      border-radius: 12px; 
+      border: 1px solid #e2e8f0; 
+      box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+
+    .st-label { 
+      font-size: 11px; font-weight: 700; color: #64748b; 
+      letter-spacing: 0.5px; text-transform: uppercase;
+      display: flex; justify-content: space-between; align-items: center; 
+      margin-bottom: 12px; 
+    }
+    .st-label mat-icon { font-size: 18px; width: 18px; height: 18px; color: #94a3b8; }
+    .st-val { font-size: 28px; font-weight: 800; color: #0f172a; margin-bottom: 4px; }
+    .st-sub { font-size: 12px; color: #64748b; font-weight: 500; }
+    .st-sub.up { color: #10b981; font-weight: 600; }
     
-    .stat-card.total { border-top-color: #78350f; } /* Brownish */
-    .stat-card.total .st-icon { color: #78350f; }
+    .text-red { color: #ef4444 !important; }
+    .text-orange { color: #f59e0b !important; }
 
-    .stat-card.occupied { border-top-color: #fbbf24; } /* Yellow */
-    .stat-card.occupied .st-icon { color: #ca8a04; }
+    /* Main Grid */
+    .main-grid { display: grid; grid-template-columns: 1fr 340px; gap: 24px; }
+    
+    .chart-card { 
+      background: white; border-radius: 12px; padding: 24px; 
+      border: 1px solid #e2e8f0; margin-bottom: 24px; 
+    }
+    .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+    .chart-card h3 { margin: 0; font-size: 15px; font-weight: 700; color: #1e293b; }
+    .period-label { font-size: 12px; color: #94a3b8; font-weight: 500; }
 
-    .stat-card.maintenance { border-top-color: #f97316; } /* Orange */
-    .stat-card.maintenance .st-icon { color: #ea580c; }
-
-    .stat-card.tenants { border-top-color: #a855f7; } /* Purple */
-    .stat-card.tenants .st-icon { color: #7c3aed; }
-
-    .stat-card.collected { border-top-color: #f59e0b; } /* Amber/Gold */
-    .stat-card.collected .st-icon { color: #d97706; }
-
-    .stat-card.outstanding { border-top-color: #ef4444; } /* Red */
-    .stat-card.outstanding .st-icon { color: #dc2626; }
-
-    .st-label { font-size: 10px; font-weight: 800; color: #94a3b8; letter-spacing: 0.8px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-    .st-icon { font-size: 16px; width: 16px; height: 16px; opacity: 0.7; }
-    .st-val { font-size: 24px; font-weight: 900; color: #1e293b; margin-bottom: 6px; }
-    .st-sub { font-size: 11px; color: #94a3b8; font-weight: 600; }
-    .st-trend { font-size: 11px; font-weight: 800; }
-    .st-trend.up { color: #10b981; }
-    .overdue { color: #ef4444; }
-
-    /* Layout Content */
-    .main-grid { display: grid; grid-template-columns: 1fr 320px; gap: 24px; }
-    .chart-card { background: white; border-radius: 16px; padding: 32px; border: 1px solid #e2e8f0; margin-bottom: 24px; }
-    .chart-card h3 { margin: 0 0 24px; font-size: 14px; font-weight: 800; color: #1e293b; text-transform: uppercase; letter-spacing: 0.5px; }
-
-    .occ-hero { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
-    .occ-pct { font-size: 36px; font-weight: 900; color: #1e293b; }
-    .occ-badge { background: #f0fdf4; color: #10b981; padding: 5px 12px; border-radius: 12px; font-size: 11px; font-weight: 800; border: 1px solid #dcfce7; }
-    .occ-badge.warn { background: #fff1f2; color: #ef4444; border-color: #fecdd3; }
-
-    .progress-bar { height: 14px; background: #f1f5f9; border-radius: 10px; overflow: hidden; display: flex; margin-bottom: 20px; }
-    .bar-fill { height: 100%; transition: width 1s ease-in-out; }
+    .progress-bar { height: 10px; background: #f1f5f9; border-radius: 5px; overflow: hidden; display: flex; margin: 16px 0 12px; }
+    .bar-fill { height: 100%; transition: width 1s cubic-bezier(0.4, 0, 0.2, 1); }
     .bar-fill.occupied { background: #10b981; }
     .bar-fill.available { background: #3b82f6; }
     .bar-fill.maintenance { background: #f59e0b; }
     
-    .progress-legend { display: flex; gap: 24px; }
-    .leg-item { font-size: 12px; color: #64748b; font-weight: 700; display: flex; align-items: center; gap: 8px; }
-    .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .progress-legend { display: flex; gap: 20px; }
+    .leg-item { font-size: 12px; color: #64748b; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; }
     .dot.green { background: #10b981; }
     .dot.blue { background: #3b82f6; }
-    .dot.light-blue { background: #60a5fa; }
     .dot.orange { background: #f59e0b; }
-    .dot.purple { background: #a855f7; }
-    .dot.amber { background: #f59e0b; }
-    .dot.red { background: #ef4444; }
 
-    .chart-wrap { height: 280px; }
+    .chart-wrap { height: 300px; }
 
-    /* Sidebar Summary */
-    .quick-summary-card { background: white; border-radius: 16px; padding: 32px; border: 1px solid #e2e8f0; position: sticky; top: 24px; }
-    .summary-list { display: flex; flex-direction: column; gap: 16px; }
-    .sum-item { display: flex; justify-content: space-between; align-items: center; }
-    .sum-item strong { font-size: 14px; font-weight: 800; color: #1e293b; }
-    .sum-divider { height: 1px; background: #f1f5f9; margin: 8px 0; }
-    .text-green { color: #10b981; }
-    .text-blue { color: #3b82f6; }
-    .text-orange { color: #f59e0b; }
-    .text-red { color: #ef4444; }
+    /* Action Queue Card */
+    .action-queue-card { 
+      background: white; border-radius: 12px; padding: 24px; 
+      border: 1px solid #e2e8f0; position: sticky; top: 24px; 
+    }
+    .action-queue-card h3 { margin: 0 0 20px; font-size: 15px; font-weight: 700; color: #1e293b; }
+    
+    .action-list { display: flex; flex-direction: column; gap: 12px; }
+    .action-item { 
+      display: flex; align-items: center; gap: 12px; 
+      padding: 12px; border-radius: 10px; border: 1px solid #f1f5f9;
+      background: #fafafa;
+    }
+    .action-icon { 
+      width: 32px; height: 32px; border-radius: 8px; 
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .overdue .action-icon { background: #fff1f2; color: #ef4444; }
+    .maintenance .action-icon { background: #fef3c7; color: #d97706; }
+    
+    .action-body { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+    .action-title { font-size: 12px; font-weight: 700; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .action-desc { font-size: 11px; color: #64748b; margin-top: 1px; }
+    
+    .action-btn {
+      padding: 4px 10px; border-radius: 6px; border: 1px solid #e2e8f0;
+      background: white; font-size: 11px; font-weight: 600; color: #3b82f6;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .action-btn:hover { background: #f8fafc; border-color: #3b82f6; }
 
-    .alerts-section { margin-top: 32px; display: flex; flex-direction: column; gap: 12px; }
-    .alert-box { background: #fff7ed; padding: 14px; border-radius: 10px; display: flex; gap: 10px; color: #9a3412; font-size: 11px; font-weight: 700; line-height: 1.5; border: 1px solid #ffedd5; }
-    .alert-box mat-icon { font-size: 18px; width: 18px; height: 18px; color: #f59e0b; }
+    .empty-actions { text-align: center; padding: 40px 0; color: #94a3b8; }
+    .empty-actions mat-icon { font-size: 40px; width: 40px; height: 40px; margin-bottom: 8px; color: #d1d5db; }
+    .empty-actions p { font-size: 13px; font-weight: 500; }
 
-    .loading-wrap { position: fixed; inset: 0; background: rgba(255,255,255,0.8); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; gap: 16px; }
-    .loading-wrap p { font-weight: 800; color: #64748b; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
+    .loading-wrap { position: fixed; inset: 0; background: rgba(255,255,255,0.7); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; gap: 12px; }
+    .loading-wrap p { font-weight: 600; color: #64748b; font-size: 13px; letter-spacing: 0.5px; }
 
-    @media (max-width: 1400px) {
-      .stats-row { grid-template-columns: repeat(3, 1fr); }
+    @media (max-width: 1200px) {
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
       .main-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 768px) {
+      .stats-grid { grid-template-columns: 1fr; }
     }
   `]
 })
@@ -246,13 +251,35 @@ export class HomeComponent implements OnInit, OnDestroy {
   currentMonthLabel = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
 
   public barChartOptions: ChartConfiguration['options'] = {
-    indexAxis: 'y',
+    indexAxis: 'x', // ✅ Vertical bars
     responsive: true,
     maintainAspectRatio: false,
-    plugins: { legend: { display: false } },
+    plugins: { 
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#1e293b',
+        padding: 12,
+        titleFont: { size: 12, weight: 'bold' },
+        bodyFont: { size: 13 },
+        displayColors: false,
+        callbacks: {
+          label: (ctx) => ` ₹${ctx.parsed.y.toLocaleString()}`
+        }
+      }
+    },
     scales: {
-      x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 10, weight: 'bold' } } },
-      y: { grid: { display: false }, ticks: { color: '#475569', font: { size: 11, weight: 'bold' } } }
+      x: { 
+        grid: { display: false }, 
+        ticks: { color: '#64748b', font: { size: 11, weight: '600' } } 
+      },
+      y: { 
+        grid: { color: '#f1f5f9' }, 
+        ticks: { 
+          color: '#94a3b8', 
+          font: { size: 10, weight: '500' },
+          callback: (value) => '₹' + (+value / 1000) + 'k'
+        } 
+      }
     }
   };
   public barChartType: ChartType = 'bar';

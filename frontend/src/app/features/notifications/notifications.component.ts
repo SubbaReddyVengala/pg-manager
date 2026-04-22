@@ -18,7 +18,6 @@ import { formatDistanceToNow } from 'date-fns';
     <div class="notif-container">
       <div class="header">
         <div>
-          <h1>Notifications</h1>
           <p class="subtitle">Stay updated on payments, maintenance, and alerts.</p>
         </div>
         <button mat-stroked-button color="default" (click)="markAllAsRead()" [disabled]="unreadCount === 0">

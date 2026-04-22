@@ -41,17 +41,16 @@ interface NavItem {
 
         <!-- Brand -->
         <div class="brand">
-          <div class="brand-avatar">{{ brandInitial }}</div>
-          <div>
+          <div class="brand-logo">{{ brandInitial }}</div>
+          <div class="brand-info">
             <span class="brand-name">{{ pgName }}</span>
-            <span class="brand-sub">Management System</span>
+            <span class="brand-role">Owner Account</span>
           </div>
         </div>
 
         <!-- Scrollable nav area -->
         <div class="nav-area">
 
-          <p class="section-label">MAIN MENU</p>
           <a *ngFor="let item of mainNav"
              [routerLink]="item.route"
              routerLinkActive="nav-active"
@@ -65,7 +64,8 @@ interface NavItem {
             <span class="badge" *ngIf="item.badge">{{item.badge}}</span>
           </a>
 
-          <p class="section-label" style="margin-top:16px">MORE</p>
+          <div class="nav-divider"></div>
+
           <a *ngFor="let item of moreNav"
              [routerLink]="item.route"
              routerLinkActive="nav-active"
@@ -91,7 +91,6 @@ interface NavItem {
               <span class="user-role">{{userRole}}</span>
             </div>
           </div>
-          <div class="footer-gap"></div>
           <button class="signout-btn" (click)="logout()">
             <mat-icon>logout</mat-icon>
             <span>Sign Out</span>
@@ -115,16 +114,15 @@ interface NavItem {
             </div>
           </div>
           <div class="topbar-right">
-            <span class="live-pill">
-              <span class="live-dot"></span>Live
+            <span class="sync-status">
+              <mat-icon>cloud_done</mat-icon>
+              <span>Updated just now</span>
             </span>
-            <!-- ✅ Refresh button now wired up -->
-            <button class="refresh-pill" (click)="onRefresh()">
-              <mat-icon>refresh</mat-icon>Refresh
+            <button class="refresh-btn" (click)="onRefresh()" mat-icon-button title="Refresh data">
+              <mat-icon>refresh</mat-icon>
             </button>
           </div>
         </header>
-
         <!-- Page content -->
         <div class="page-content">
           <router-outlet></router-outlet>
@@ -137,16 +135,17 @@ interface NavItem {
     * { box-sizing: border-box; margin: 0; padding: 0; }
     .layout {
       display: flex; height: 100vh; overflow: hidden;
-      background: #F0F2F5; position: relative;
+      background: #F8FAFC; position: relative;
     }
     .overlay {
       position: fixed; inset: 0;
       background: rgba(0,0,0,0.45); z-index: 300;
     }
     .sidebar {
-      width: 224px; min-width: 224px; height: 100vh;
-      background: #1A2540; display: flex; flex-direction: column;
-      z-index: 400; flex-shrink: 0; transition: margin-left 0.28s ease;
+      width: 240px; min-width: 240px; height: 100vh;
+      background: #0D1117; display: flex; flex-direction: column;
+      z-index: 400; flex-shrink: 0; transition: margin-left 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+      border-right: 1px solid rgba(255,255,255,0.05);
     }
     @media (max-width: 767px) {
       .sidebar {
@@ -156,107 +155,117 @@ interface NavItem {
       .sidebar.sidebar-visible { transform: translateX(0); }
     }
     @media (min-width: 768px) {
-      .sidebar:not(.sidebar-visible) { margin-left: -224px; }
+      .sidebar:not(.sidebar-visible) { margin-left: -240px; }
     }
     .brand {
-      display: flex; align-items: center; gap: 10px;
-      padding: 20px 16px 16px;
-      border-bottom: 1px solid rgba(255,255,255,0.07); flex-shrink: 0;
+      display: flex; align-items: center; gap: 12px;
+      padding: 24px 20px;
+      border-bottom: 1px solid rgba(255,255,255,0.05); flex-shrink: 0;
     }
-    .brand-avatar {
-      width: 38px; height: 38px; background: #3B82F6; border-radius: 9px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 13px; font-weight: 800; color: #fff; flex-shrink: 0;
+    .brand-logo {
+      width: 40px; height: 40px; background: linear-gradient(135deg, #3B82F6, #10B981);
+      border-radius: 10px; display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 800; color: #fff; flex-shrink: 0;
+      box-shadow: 0 4px 12px rgba(59,130,246,0.3);
     }
-    .brand-name { display: block; font-size: 14px; font-weight: 700; color: #fff; }
-    .brand-sub  { display: block; font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 2px; }
-    .nav-area { flex: 1; overflow-y: auto; padding: 14px 0 8px; }
+    .brand-info { display: flex; flex-direction: column; }
+    .brand-name { font-size: 15px; font-weight: 700; color: #fff; letter-spacing: -0.3px; }
+    .brand-role { font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 1px; font-weight: 500; }
+    
+    .nav-area { flex: 1; overflow-y: auto; padding: 20px 0; }
     .nav-area::-webkit-scrollbar { width: 0; }
-    .section-label {
-      font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.3);
-      letter-spacing: 1.2px; padding: 0 16px 8px;
+    
+    .nav-divider {
+      height: 1px; background: rgba(255,255,255,0.05);
+      margin: 16px 20px;
     }
+    
     .nav-item {
-      display: flex; align-items: center; gap: 11px;
-      padding: 11px 14px; margin: 3px 10px; border-radius: 9px;
-      text-decoration: none; color: rgba(255,255,255,0.55);
-      font-size: 13px; font-weight: 500; cursor: pointer;
-      transition: background 0.18s, color 0.18s;
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 16px; margin: 2px 12px; border-radius: 8px;
+      text-decoration: none; color: rgba(255,255,255,0.5);
+      font-size: 13.5px; font-weight: 500; cursor: pointer;
+      transition: all 0.2s ease;
     }
-    .nav-item:hover { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.9); }
-    .nav-item.nav-active { background: rgba(59,130,246,0.18); color: #fff; font-weight: 600; }
-    .nav-icon { font-size: 19px !important; width: 19px !important; height: 19px !important; flex-shrink: 0; }
+    .nav-item:hover { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.9); }
+    .nav-item.nav-active { 
+      background: rgba(59,130,246,0.1); 
+      color: #3B82F6; 
+      font-weight: 600; 
+      box-shadow: inset 3px 0 0 #3B82F6;
+      border-radius: 0 8px 8px 0;
+      margin-left: 0;
+      padding-left: 28px;
+    }
+    .nav-icon { font-size: 20px !important; width: 20px !important; height: 20px !important; flex-shrink: 0; }
     .nav-label { flex: 1; }
     .badge {
       background: #EF4444; color: #fff; border-radius: 12px;
       font-size: 10px; font-weight: 700; padding: 2px 7px; line-height: 1.4;
     }
-    .sidebar-footer { flex-shrink: 0; padding: 0 0 10px; }
-    .footer-divider { height: 1px; background: rgba(255,255,255,0.08); }
-    .user-row { display: flex; align-items: center; gap: 10px; padding: 14px 14px 10px; }
+    
+    .sidebar-footer { flex-shrink: 0; padding-bottom: 12px; }
+    .footer-divider { height: 1px; background: rgba(255,255,255,0.05); }
+    .user-row { display: flex; align-items: center; gap: 10px; padding: 16px 20px; }
     .user-avatar {
-      width: 34px; height: 34px; background: #3B82F6; border-radius: 50%;
+      width: 36px; height: 36px; background: rgba(255,255,255,0.1); border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
-      font-size: 13px; font-weight: 700; color: #fff; flex-shrink: 0;
+      font-size: 14px; font-weight: 700; color: #fff; flex-shrink: 0;
+      border: 1px solid rgba(255,255,255,0.1);
     }
+    .user-info { display: flex; flex-direction: column; overflow: hidden; }
     .user-email {
-      display: block; font-size: 11px; color: rgba(255,255,255,0.8);
+      font-size: 12px; color: rgba(255,255,255,0.8);
       font-weight: 500; white-space: nowrap;
-      overflow: hidden; text-overflow: ellipsis; max-width: 140px;
+      overflow: hidden; text-overflow: ellipsis;
     }
     .user-role {
-      display: block; font-size: 10px; color: rgba(255,255,255,0.35);
-      text-transform: uppercase; letter-spacing: 0.6px; margin-top: 1px;
+      font-size: 10px; color: rgba(255,255,255,0.3);
+      text-transform: uppercase; letter-spacing: 0.8px; margin-top: 2px;
     }
-    .footer-gap { height: 12px; }
     .signout-btn {
-      display: flex; align-items: center; gap: 9px;
-      width: calc(100% - 20px); margin: 0 10px; padding: 10px 14px;
-      border: none; border-radius: 9px; background: transparent;
-      color: rgba(255,255,255,0.5); font-size: 13px; font-weight: 600;
-      cursor: pointer; transition: background 0.18s, color 0.18s;
+      display: flex; align-items: center; gap: 10px;
+      width: calc(100% - 24px); margin: 0 12px; padding: 10px 16px;
+      border: none; border-radius: 8px; background: transparent;
+      color: rgba(255,255,255,0.4); font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: all 0.2s;
     }
     .signout-btn mat-icon { font-size: 18px !important; width: 18px !important; height: 18px !important; }
-    .signout-btn:hover { background: rgba(239,68,68,0.22); color: #EF4444; }
+    .signout-btn:hover { background: rgba(239,68,68,0.1); color: #EF4444; }
+    
     .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
     .topbar {
-      height: 62px; background: #fff; border-bottom: 1px solid #E5E7EB;
+      height: 64px; background: #fff; border-bottom: 1px solid #E2E8F0;
       display: flex; align-items: center; justify-content: space-between;
-      padding: 0 20px; flex-shrink: 0;
+      padding: 0 24px; flex-shrink: 0;
     }
-    .topbar-left { display: flex; align-items: center; gap: 12px; }
+    .topbar-left { display: flex; align-items: center; gap: 16px; }
     .hamburger {
-      background: none; border: none; border-radius: 8px; padding: 6px;
-      cursor: pointer; color: #374151; display: flex; align-items: center;
-      transition: background 0.18s;
+      background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 8px;
+      cursor: pointer; color: #64748B; display: flex; align-items: center;
+      transition: all 0.2s;
     }
-    .hamburger:hover { background: #F3F4F6; }
-    .page-title { font-size: 17px; font-weight: 700; color: #111827; line-height: 1.2; }
-    .page-sub   { font-size: 12px; color: #14B8A6; font-weight: 500; margin-top: 1px; }
-    .topbar-right { display: flex; align-items: center; gap: 10px; }
-    .live-pill {
+    .hamburger:hover { background: #F1F5F9; color: #1E293B; }
+    .page-title { font-size: 18px; font-weight: 800; color: #0F172A; letter-spacing: -0.4px; }
+    .page-sub   { font-size: 12px; color: #64748B; font-weight: 500; margin-top: 1px; }
+    
+    .topbar-right { display: flex; align-items: center; gap: 16px; }
+    .sync-status {
       display: flex; align-items: center; gap: 6px;
-      background: #ECFDF5; border: 1px solid #6EE7B7; border-radius: 20px;
-      padding: 5px 13px; font-size: 12px; font-weight: 600; color: #059669;
+      font-size: 12px; font-weight: 500; color: #94A3B8;
     }
-    .live-dot {
-      width: 7px; height: 7px; background: #10B981;
-      border-radius: 50%; animation: blink 1.6s infinite;
+    .sync-status mat-icon { font-size: 16px !important; width: 16px !important; height: 16px !important; color: #10B981; }
+    .refresh-btn {
+      color: #64748B; transition: all 0.2s;
     }
-    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
-    .refresh-pill {
-      display: flex; align-items: center; gap: 5px;
-      border: 1px solid #D1D5DB; border-radius: 8px; background: none;
-      padding: 5px 12px; font-size: 12px; font-weight: 500; color: #374151;
-      cursor: pointer; transition: background 0.18s;
-    }
-    .refresh-pill mat-icon { font-size: 15px !important; width: 15px !important; height: 15px !important; }
-    .refresh-pill:hover { background: #F3F4F6; }
-    .page-content { flex: 1; overflow-y: auto; padding: 24px; }
+    .refresh-btn:hover { background: #F1F5F9; color: #3B82F6; transform: rotate(180deg); }
+    
+    .page-content { flex: 1; overflow-y: auto; padding: 32px; }
+    
     @media (max-width: 767px) {
       .topbar-right { display: none; }
       .page-sub     { display: none; }
-      .page-content { padding: 16px; }
+      .page-content { padding: 20px; }
     }
   `]
 })
