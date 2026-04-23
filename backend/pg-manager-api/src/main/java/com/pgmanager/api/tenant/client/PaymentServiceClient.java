@@ -8,9 +8,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-
-@Component
+@Component("tenantPaymentServiceClient")
 @RequiredArgsConstructor
+@Slf4j
 public class PaymentServiceClient {
 
     private final RestTemplate restTemplate;

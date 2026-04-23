@@ -7,9 +7,9 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
 import java.util.List;
-
-@Component
+@Component("roomTenantServiceClient")
 @RequiredArgsConstructor
+@Slf4j
 public class TenantServiceClient {
 
     private final RestTemplate restTemplate;
