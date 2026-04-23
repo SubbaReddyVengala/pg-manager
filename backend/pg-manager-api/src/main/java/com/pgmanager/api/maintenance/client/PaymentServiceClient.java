@@ -8,9 +8,9 @@ import org.springframework.web.client.RestTemplate;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Map;
-
-@Component
+@Component("maintenancePaymentServiceClient")
 @RequiredArgsConstructor
+@Slf4j
 public class PaymentServiceClient {
 
     private final RestTemplate restTemplate;

@@ -3,9 +3,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
-
-@Component
+@Component("tenantRoomServiceClient")
 @RequiredArgsConstructor
+@Slf4j
 public class RoomServiceClient {
 
     private final RestTemplate restTemplate;
