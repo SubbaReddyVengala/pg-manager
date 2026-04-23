@@ -9,7 +9,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "rent_payments", schema = "payment_schema")
+@Table(name = "rent_payments")
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class RentPayment {
 

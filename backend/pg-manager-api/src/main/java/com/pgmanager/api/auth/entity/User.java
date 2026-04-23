@@ -10,7 +10,7 @@ import java.util.Collection;
 import java.util.List;
 
 @Entity
-@Table(name = "users", schema = "auth_schema")
+@Table(name = "users")
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class User implements UserDetails {
 

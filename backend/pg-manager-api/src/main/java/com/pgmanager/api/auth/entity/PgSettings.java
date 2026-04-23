@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "pg_settings", schema = "auth_schema")
+@Table(name = "pg_settings")
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class PgSettings {
 
