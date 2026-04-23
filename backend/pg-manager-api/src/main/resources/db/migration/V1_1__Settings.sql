@@ -1,3 +1,6 @@
+-- Finalized Settings Migration
+DROP TABLE IF EXISTS pg_settings CASCADE;
+
 CREATE TABLE pg_settings (
     id BIGSERIAL PRIMARY KEY,
     pg_name VARCHAR(255),
@@ -16,6 +19,6 @@ CREATE TABLE pg_settings (
 
 -- Seed initial settings
 INSERT INTO pg_settings 
-(pg_name, owner_name, phone, address)
+(pg_name, owner_name, phone, address, whatsapp_reminders, email_notifications, overdue_alerts, maintenance_alerts, monthly_report_email, default_rent_due_day, late_fee_after_days, late_fee_amount)
 VALUES 
-('Subbu''s PG Hostel', 'SubbaReddy Vengala', '9876543210', 'Hyderabad, Telangana - 500001');
+('Subbu''s PG Hostel', 'SubbaReddy Vengala', '9876543210', 'Hyderabad, Telangana - 500001', true, true, true, false, false, 1, 5, 50.0);
