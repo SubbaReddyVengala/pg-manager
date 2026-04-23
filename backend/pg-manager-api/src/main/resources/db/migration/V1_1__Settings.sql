@@ -1,4 +1,5 @@
--- Finalized Settings Migration
+-- Clean up any existing objects to prevent conflicts
+DROP VIEW IF EXISTS pg_settings CASCADE;
 DROP TABLE IF EXISTS pg_settings CASCADE;
 
 CREATE TABLE pg_settings (
