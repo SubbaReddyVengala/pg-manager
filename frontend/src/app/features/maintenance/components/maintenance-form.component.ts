@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Observable } from 'rxjs';
 import { MaintenanceService } from '../../../core/services/maintenance.service';
-import { RoomService, Room } from '../../../core/services/room.service';
+import { RoomService } from '../../../core/services/room.service';
+import { RoomResponse } from '../../../shared/models/room.models';
 
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
@@ -145,7 +146,7 @@ export class MaintenanceFormComponent implements OnInit {
 
   form!: FormGroup;
   loading = false;
-  rooms: Room[] = [];
+  rooms: RoomResponse[] = [];
 
   private roomService = inject(RoomService);
 
@@ -175,9 +176,9 @@ export class MaintenanceFormComponent implements OnInit {
   }
 
   loadRooms(): void {
-    this.roomService.getAllRooms().subscribe({
-      next: (data) => {
-        this.rooms = data.sort((a, b) => a.roomNumber.localeCompare(b.roomNumber));
+    this.roomService.getRooms().subscribe({
+      next: (data: RoomResponse[]) => {
+        this.rooms = data.sort((a: RoomResponse, b: RoomResponse) => a.roomNumber.localeCompare(b.roomNumber));
       },
       error: () => this.snackBar.open('Error loading rooms.', 'Close', { duration: 3000 })
     });

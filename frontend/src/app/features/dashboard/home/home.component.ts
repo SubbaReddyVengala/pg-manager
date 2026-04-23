@@ -263,20 +263,20 @@ export class HomeComponent implements OnInit, OnDestroy {
         bodyFont: { size: 13 },
         displayColors: false,
         callbacks: {
-          label: (ctx) => ` ₹${ctx.parsed.y.toLocaleString()}`
+          label: (ctx) => ` ₹${(ctx.parsed.y ?? 0).toLocaleString()}`
         }
       }
     },
     scales: {
       x: { 
         grid: { display: false }, 
-        ticks: { color: '#64748b', font: { size: 11, weight: '600' } } 
+        ticks: { color: '#64748b', font: { size: 11, weight: 600 } } 
       },
       y: { 
         grid: { color: '#f1f5f9' }, 
         ticks: { 
           color: '#94a3b8', 
-          font: { size: 10, weight: '500' },
+          font: { size: 10, weight: 500 },
           callback: (value) => '₹' + (+value / 1000) + 'k'
         } 
       }
