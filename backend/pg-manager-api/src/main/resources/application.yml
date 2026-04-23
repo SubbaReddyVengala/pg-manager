@@ -25,14 +25,23 @@ spring:
 server:
   port: 8080
 
-# Security Configuration
-application:
-  security:
-    jwt:
-      secret-key: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
-      expiration: 86400000 # 24 hours
-      refresh-token:
-        expiration: 604800000 # 7 days
+# JWT Security Properties (Flattened to match JwtUtil @Value)
+jwt:
+  secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+  expiration: 86400000 # 24 hours
+  refresh-expiration: 604800000 # 7 days
+
+# Service URLs for internal "Client" fallback (though now internal, properties might still be read)
+auth-service:
+  url: http://localhost:8080/api/v1
+room-service:
+  url: http://localhost:8080/api/v1
+tenant-service:
+  url: http://localhost:8080/api/v1
+payment-service:
+  url: http://localhost:8080/api/v1
+notification-service:
+  url: http://localhost:8080/api/v1
 
 # Logging
 logging:
