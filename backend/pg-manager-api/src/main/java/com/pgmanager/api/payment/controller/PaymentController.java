@@ -11,6 +11,10 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
+
 @RestController
 @RequestMapping("/payments")
 @RequiredArgsConstructor
@@ -18,13 +22,14 @@ public class PaymentController {
 
     private final PaymentService paymentService;
 
-    // GET /payments?month=2026-03-01&status=PAID
-    // Powers the main payment table with month picker + filter tabs
+    // GET /payments?month=2026-03-01&status=PAID&page=0&size=20
     @GetMapping
-    public ResponseEntity<List<PaymentResponse>> getAll(
+    public ResponseEntity<Page<PaymentResponse>> getAll(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate month,
-            @RequestParam(required = false) PaymentStatus status) {
-        return ResponseEntity.ok(paymentService.getPaymentsByMonth(month, status));
+            @RequestParam(required = false) PaymentStatus status,
+            @RequestParam(required = false) String search,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(paymentService.getPaymentsByMonth(month, status, search, pageable));
     }
 
     // GET /payments/stats?month=2026-03-01

@@ -25,71 +25,82 @@ import { Subject, takeUntil, Observable, startWith, map } from 'rxjs';
     MatInputModule, MatSelectModule, MatAutocompleteModule, EmptyStateComponent
   ],
   template: `
-    <div class="expense-page">
+    <div class="expense-page animate-in">
       <!-- TOOLBAR -->
-      <div class="toolbar">
+      <div class="toolbar glass">
         <div class="search-wrap">
           <mat-icon>search</mat-icon>
-          <input type="text" placeholder="Search expenses..." [(ngModel)]="searchQuery" (input)="applyFilter()">
+          <input type="text" placeholder="Search by category or description..." [(ngModel)]="searchQuery" (input)="applyFilter()">
         </div>
         <div class="spacer"></div>
-        <button mat-flat-button color="primary" (click)="showAddForm = true">
-          <mat-icon>add</mat-icon> Add Expense
-        </button>
+        <div class="toolbar-actions">
+           <button class="add-btn" (click)="showAddForm = true">
+             <mat-icon>add</mat-icon> Add Expense
+           </button>
+        </div>
       </div>
 
       <!-- SUMMARY CARDS -->
       <div class="stats-grid" *ngIf="profit">
-        <div class="stat-card total-income">
-          <div class="card-label">TOTAL INCOME</div>
-          <div class="card-value">₹{{ profit.totalRevenue | number }}</div>
-          <mat-icon class="card-icon">payments</mat-icon>
+        <div class="stat-card glass hover-lift total-income">
+          <div class="st-icon-bg green"><mat-icon>payments</mat-icon></div>
+          <div class="st-info">
+             <div class="st-label">Total Revenue</div>
+             <div class="st-val">₹{{ profit.totalRevenue | number }}</div>
+          </div>
         </div>
-        <div class="stat-card total-expenses">
-          <div class="card-label">TOTAL EXPENSES</div>
-          <div class="card-value">₹{{ (profit.totalGeneralExpenses + profit.totalMaintenanceCost) | number }}</div>
-          <mat-icon class="card-icon">receipt_long</mat-icon>
+        <div class="stat-card glass hover-lift total-expenses">
+          <div class="st-icon-bg red"><mat-icon>receipt_long</mat-icon></div>
+          <div class="st-info">
+             <div class="st-label">Total Costs</div>
+             <div class="st-val">₹{{ (profit.totalGeneralExpenses + profit.totalMaintenanceCost) | number }}</div>
+          </div>
         </div>
-        <div class="stat-card net-profit">
-          <div class="card-label">NET PROFIT 🎯</div>
-          <div class="card-value profit-text">₹{{ profit.netProfit | number }}</div>
-          <div class="profit-margin">{{ profitMargin }}% margin</div>
+        <div class="stat-card glass hover-lift net-profit">
+          <div class="st-icon-bg purple"><mat-icon>auto_graph</mat-icon></div>
+          <div class="st-info">
+             <div class="st-label">Net Profit</div>
+             <div class="st-val">₹{{ profit.netProfit | number }}</div>
+          </div>
         </div>
       </div>
 
       <div class="main-content">
         <!-- EXPENSE LIST -->
-        <div class="expense-list-section">
-          <h3>{{ currentMonthLabel }} Expenses</h3>
-          <div class="loading-center" *ngIf="loading">
-            <mat-spinner diameter="40"></mat-spinner>
+        <div class="expense-list-section glass">
+          <div class="section-header">
+             <h3>{{ currentMonthLabel }} Records</h3>
+             <span class="count-badge">{{ expenses.length }} entries</span>
           </div>
+          
+          <div class="loading-center" *ngIf="loading">
+            <mat-spinner diameter="32"></mat-spinner>
+          </div>
+          
           <div class="expense-list" *ngIf="!loading">
-            <div class="expense-item" *ngFor="let ex of expenses">
+            <div class="expense-item hover-lift" *ngFor="let ex of expenses">
               <div class="ex-icon" [style.background-color]="getCategoryBg(ex.category)">
                 <mat-icon [style.color]="getCategoryColor(ex.category)">{{ getCategoryIcon(ex.category) }}</mat-icon>
               </div>
               <div class="ex-details">
                 <div class="ex-cat">{{ formatCategory(ex.category) }}</div>
-                <div class="ex-date">{{ ex.expenseDate | date:'dd-MMM-yyyy' }}</div>
+                <div class="ex-desc">{{ ex.description }}</div>
+                <div class="ex-date"><mat-icon>calendar_today</mat-icon> {{ ex.expenseDate | date:'dd MMM yyyy' }}</div>
               </div>
               <div class="ex-amount">₹{{ ex.amount | number }}</div>
             </div>
 
-            <div class="total-row">
-              <span>Total Expenses</span>
+            <div class="total-summary-row">
+              <span class="total-label">MONTHLY TOTAL</span>
               <span class="total-val">₹{{ totalExpenses | number }}</span>
             </div>
 
-            <div class="empty-state" *ngIf="expenses.length === 0">
+            <div class="empty-container" *ngIf="expenses.length === 0">
               <app-empty-state
                 icon="receipt_long"
                 title="No expenses recorded"
-                description="You haven't added any expenses for this month yet. Track your costs to accurately see your net profit."
-                actionText="Add Expense"
-                actionIcon="add"
-                padding="40px 20px"
-                (actionClicked)="showAddForm = true"
+                description="You haven't added any expenses for this month yet."
+                padding="60px 20px"
               ></app-empty-state>
             </div>
           </div>
@@ -97,7 +108,7 @@ import { Subject, takeUntil, Observable, startWith, map } from 'rxjs';
 
         <!-- BREAKDOWN & MARGIN -->
         <div class="side-section">
-           <div class="breakdown-card">
+           <div class="breakdown-card glass">
               <h3>Expense Breakdown</h3>
               <div class="breakdown-list">
                 <div class="breakdown-item" *ngFor="let item of breakdown">
@@ -109,54 +120,60 @@ import { Subject, takeUntil, Observable, startWith, map } from 'rxjs';
                     <div class="br-fill" [style.width]="item.percentage + '%'" [style.background-color]="item.color"></div>
                   </div>
                 </div>
+                <div class="empty-breakdown" *ngIf="breakdown.length === 0">
+                   <p>Add expenses to see breakdown</p>
+                </div>
               </div>
            </div>
 
-           <div class="profit-summary-card" *ngIf="profit">
-              <p class="summary-label">NET PROFIT — {{ currentMonthLabel | uppercase }}</p>
-              <h2 class="summary-value">₹{{ profit.netProfit | number }}</h2>
-              <p class="summary-margin">{{ profitMargin }}% profit margin 🎯</p>
+           <div class="profit-summary-card glass">
+              <p class="summary-label">PROFIT MARGIN 🎯</p>
+              <h2 class="summary-value">{{ profitMargin }}%</h2>
+              <p class="summary-desc">Efficiency for {{ currentMonthLabel }}</p>
            </div>
         </div>
       </div>
 
       <!-- ADD EXPENSE OVERLAY -->
-      <div class="modal-overlay" *ngIf="showAddForm" (click)="showAddForm = false">
-        <div class="modal" (click)="$event.stopPropagation()">
-          <h3>Add New Expense</h3>
-          <form [formGroup]="expenseForm" (ngSubmit)="onAddExpense()" class="expense-form">
-            <mat-form-field appearance="outline">
-              <mat-label>Category Name (e.g. Electricity, Tax, etc.)</mat-label>
-              <input type="text"
-                     placeholder="Select or type category"
-                     matInput
-                     formControlName="category"
-                     [matAutocomplete]="auto">
-              <mat-autocomplete #auto="matAutocomplete" [displayWith]="displayCategory">
-                <mat-option *ngFor="let option of filteredCategories$ | async" [value]="option">
-                  {{option.label}}
-                </mat-option>
-              </mat-autocomplete>
-            </mat-form-field>
+      <div class="drawer-overlay" *ngIf="showAddForm" (click)="showAddForm = false">
+        <div class="drawer" (click)="$event.stopPropagation()">
+          <div class="drawer-header">
+             <h2>Record Expense</h2>
+             <button class="close-x" (click)="showAddForm = false"><mat-icon>close</mat-icon></button>
+          </div>
+          
+          <form [formGroup]="expenseForm" (ngSubmit)="onAddExpense()" class="drawer-form">
+            <div class="field">
+              <label>Category *</label>
+              <mat-form-field appearance="outline">
+                <input type="text" placeholder="Select or type category" matInput formControlName="category" [matAutocomplete]="auto">
+                <mat-autocomplete #auto="matAutocomplete" [displayWith]="displayCategory">
+                  <mat-option *ngFor="let option of filteredCategories$ | async" [value]="option">
+                    {{option.label}}
+                  </mat-option>
+                </mat-autocomplete>
+              </mat-form-field>
+            </div>
 
-            <mat-form-field appearance="outline">
-              <mat-label>Description</mat-label>
-              <input matInput formControlName="description" placeholder="e.g. Monthly Electricity Bill">
-            </mat-form-field>
+            <div class="field">
+              <label>Description *</label>
+              <input type="text" formControlName="description" placeholder="e.g. Monthly Electricity Bill" class="custom-input">
+            </div>
 
-            <mat-form-field appearance="outline">
-              <mat-label>Amount (₹)</mat-label>
-              <input matInput type="number" formControlName="amount">
-            </mat-form-field>
+            <div class="form-row">
+              <div class="field">
+                <label>Amount (₹) *</label>
+                <input type="number" formControlName="amount" class="custom-input">
+              </div>
+              <div class="field">
+                <label>Expense Date *</label>
+                <input type="date" formControlName="expenseDate" class="custom-input">
+              </div>
+            </div>
 
-            <mat-form-field appearance="outline">
-              <mat-label>Expense Date</mat-label>
-              <input matInput type="date" formControlName="expenseDate">
-            </mat-form-field>
-
-            <div class="modal-actions">
-              <button mat-button type="button" (click)="showAddForm = false">Cancel</button>
-              <button mat-flat-button color="primary" type="submit" [disabled]="expenseForm.invalid || adding">
+            <div class="drawer-actions">
+              <button class="btn-cancel" type="button" (click)="showAddForm = false">Cancel</button>
+              <button class="btn-submit" type="submit" [disabled]="expenseForm.invalid || adding">
                 {{ adding ? 'Saving...' : 'Add Expense' }}
               </button>
             </div>
@@ -166,77 +183,85 @@ import { Subject, takeUntil, Observable, startWith, map } from 'rxjs';
     </div>
   `,
   styles: [`
-    .expense-page { max-width: 1200px; margin: 0 auto; padding: 20px; }
-    .toolbar { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
-    .search-wrap { 
-      display: flex; 
-      align-items: center; 
-      gap: 12px; 
-      background: #ffffff; 
-      border: 1.5px solid #e2e8f0; 
-      border-radius: 12px; 
-      padding: 0 16px; 
-      flex: 1; 
-      max-width: 320px; 
-      height: 44px;
-      transition: all 0.2s ease;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-    }
-    .search-wrap:focus-within {
-      border-color: #1e293b;
-      box-shadow: 0 0 0 3px rgba(30, 41, 59, 0.05);
-    }
-    .search-wrap mat-icon { color: #94a3b8; font-size: 20px; width: 20px; height: 20px; transition: color 0.2s; }
-    .search-wrap:focus-within mat-icon { color: #1e293b; }
-    .search-wrap input { border: none; outline: none; font-size: 14px; font-weight: 500; color: #1e293b; flex: 1; background: transparent; height: 100%; }
-    .search-wrap input::placeholder { color: #94a3b8; }
-    .spacer { flex: 1; }
+    .expense-page { padding: 24px; background: transparent; min-height: 100vh; }
+    .glass { background: rgba(255, 255, 255, 0.7) !important; backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.5) !important; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05) !important; }
+    .hover-lift:hover { transform: translateY(-4px); box-shadow: 0 12px 20px -10px rgba(0,0,0,0.1) !important; border-color: #3b82f6 !important; }
 
-    .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 32px; }
-    .stat-card { background: #fff; border-radius: 12px; padding: 24px; position: relative; border: 1px solid #e2e8f0; }
-    .card-label { font-size: 10px; font-weight: 700; color: #94a3b8; letter-spacing: 0.5px; margin-bottom: 8px; }
-    .card-value { font-size: 24px; font-weight: 800; color: #1e293b; }
-    .card-icon { position: absolute; top: 20px; right: 20px; color: #f59e0b; opacity: 0.8; }
-    .total-income { border-top: 4px solid #22c55e; }
-    .total-expenses { border-top: 4px solid #ef4444; }
-    .net-profit { border-top: 4px solid #a855f7; }
-    .profit-text { color: #22c55e; }
-    .profit-margin { font-size: 12px; color: #22c55e; font-weight: 600; margin-top: 4px; }
+    .toolbar { display: flex; align-items: center; gap: 16px; margin-bottom: 32px; padding: 12px 20px; border-radius: 16px; }
+    .search-wrap { display: flex; align-items: center; gap: 12px; background: white; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 0 16px; flex: 1; max-width: 360px; height: 44px; transition: all 0.2s; }
+    .search-wrap:focus-within { border-color: #3b82f6; }
+    .search-wrap input { border: none; outline: none; font-size: 14px; flex: 1; background: transparent; }
+    .add-btn { display: flex; align-items: center; gap: 8px; background: #1e293b; color: white; border: none; padding: 10px 20px; border-radius: 10px; font-weight: 700; cursor: pointer; transition: 0.2s; }
+    .add-btn:hover { background: #0f172a; transform: translateY(-1px); }
 
-    .main-content { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; }
-    .expense-list-section { background: #fff; border-radius: 12px; padding: 24px; border: 1px solid #e2e8f0; }
-    .expense-list-section h3 { margin: 0 0 20px; font-size: 16px; font-weight: 700; }
-    .expense-item { display: flex; align-items: center; gap: 16px; padding: 12px 0; border-bottom: 1px solid #f1f5f9; }
-    .ex-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
-    .ex-details { flex: 1; }
-    .ex-cat { font-size: 14px; font-weight: 600; color: #1e293b; }
-    .ex-date { font-size: 12px; color: #94a3b8; }
-    .ex-amount { font-size: 16px; font-weight: 700; color: #ef4444; }
+    .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 32px; }
+    .stat-card { display: flex; align-items: center; gap: 16px; padding: 24px; border-radius: 16px; }
+    .st-icon-bg { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
+    .st-icon-bg.green { background: #ecfdf5; color: #10b981; }
+    .st-icon-bg.red { background: #fef2f2; color: #ef4444; }
+    .st-icon-bg.purple { background: #f5f3ff; color: #8b5cf6; }
+    .st-label { font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 4px; text-transform: uppercase; }
+    .st-val { font-size: 24px; font-weight: 800; color: #1e293b; font-family: 'JetBrains Mono', monospace; }
 
-    .total-row { display: flex; justify-content: space-between; align-items: center; margin-top: 24px; padding-top: 16px; border-top: 2px solid #f1f5f9; font-weight: 700; }
-    .total-val { font-size: 20px; color: #ef4444; }
+    .main-content { display: grid; grid-template-columns: 1fr 340px; gap: 24px; }
+    .expense-list-section { background: #fff; border-radius: 20px; padding: 24px; border: 1px solid #e2e8f0; }
+    .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+    .section-header h3 { margin: 0; font-size: 16px; font-weight: 800; color: #1e293b; }
+    .count-badge { font-size: 11px; font-weight: 700; color: #64748b; background: #f1f5f9; padding: 4px 10px; border-radius: 20px; }
+
+    .expense-item { display: flex; align-items: center; gap: 16px; padding: 16px; border-radius: 12px; background: white; border: 1px solid #f8fafc; margin-bottom: 12px; }
+    .ex-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .ex-details { flex: 1; min-width: 0; }
+    .ex-cat { font-size: 14px; font-weight: 700; color: #1e293b; }
+    .ex-desc { font-size: 12px; color: #64748b; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ex-date { font-size: 11px; color: #94a3b8; display: flex; align-items: center; gap: 4px; margin-top: 4px; }
+    .ex-date mat-icon { font-size: 12px; width: 12px; height: 12px; }
+    .ex-amount { font-size: 16px; font-weight: 800; color: #ef4444; font-family: 'JetBrains Mono', monospace; }
+
+    .total-summary-row { display: flex; justify-content: space-between; align-items: center; margin-top: 24px; padding: 20px; background: #fef2f2; border-radius: 12px; }
+    .total-label { font-size: 12px; font-weight: 800; color: #991b1b; letter-spacing: 1px; }
+    .total-val { font-size: 20px; font-weight: 900; color: #dc2626; }
 
     .side-section { display: flex; flex-direction: column; gap: 24px; }
-    .breakdown-card { background: #fff; border-radius: 12px; padding: 24px; border: 1px solid #e2e8f0; }
-    .breakdown-card h3 { margin: 0 0 20px; font-size: 16px; font-weight: 700; }
+    .breakdown-card { border-radius: 20px; padding: 24px; }
+    .breakdown-card h3 { margin: 0 0 20px; font-size: 15px; font-weight: 700; color: #1e293b; }
     .breakdown-list { display: flex; flex-direction: column; gap: 16px; }
     .br-header { display: flex; justify-content: space-between; margin-bottom: 6px; }
-    .br-label { font-size: 13px; color: #64748b; }
-    .br-pct { font-size: 13px; font-weight: 700; color: #1e293b; }
-    .br-bar { width: 100%; height: 8px; background: #f1f5f9; border-radius: 4px; overflow: hidden; }
-    .br-fill { height: 100%; border-radius: 4px; }
+    .br-label { font-size: 12px; color: #64748b; font-weight: 600; }
+    .br-pct { font-size: 12px; font-weight: 700; color: #1e293b; }
+    .br-bar { width: 100%; height: 6px; background: #f1f5f9; border-radius: 3px; overflow: hidden; }
+    .br-fill { height: 100%; border-radius: 3px; transition: width 1s cubic-bezier(0.4, 0, 0.2, 1); }
 
-    .profit-summary-card { background: #22c55e; border-radius: 12px; padding: 24px; color: #fff; text-align: center; }
-    .summary-label { font-size: 11px; font-weight: 700; opacity: 0.9; margin-bottom: 12px; }
-    .summary-value { font-size: 32px; font-weight: 800; margin: 0; }
-    .summary-margin { font-size: 13px; font-weight: 600; opacity: 0.9; margin-top: 8px; }
+    .profit-summary-card { background: #22c55e !important; color: white !important; border-radius: 20px; padding: 24px; text-align: center; }
+    .summary-label { font-size: 11px; font-weight: 800; opacity: 0.8; letter-spacing: 1px; margin-bottom: 8px; }
+    .summary-value { font-size: 36px; font-weight: 900; margin: 0; font-family: 'JetBrains Mono', monospace; }
+    .summary-desc { font-size: 12px; opacity: 0.8; margin-top: 4px; }
 
-    /* Modal */
-    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 1000; display: flex; align-items: center; justify-content: center; }
-    .modal { background: #fff; border-radius: 12px; padding: 28px; width: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
-    .modal h3 { margin: 0 0 20px; color: #1e293b; }
-    .expense-form { display: flex; flex-direction: column; gap: 4px; }
-    .modal-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px; }
+    /* Modal / Drawer */
+    .drawer-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.2); z-index: 1000; }
+    .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 420px; background: white; box-shadow: -4px 0 20px rgba(0,0,0,0.1); padding: 32px; display: flex; flex-direction: column; }
+    .drawer-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; }
+    .drawer-header h2 { margin: 0; font-size: 20px; font-weight: 800; color: #1e293b; }
+    .close-x { border: none; background: transparent; color: #94a3b8; cursor: pointer; }
+    .drawer-form { display: flex; flex-direction: column; gap: 20px; }
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field label { font-size: 12px; font-weight: 700; color: #64748b; }
+    .custom-input { border: 1px solid #e2e8f0; padding: 12px; border-radius: 10px; font-size: 14px; background: #f8fafc; transition: 0.2s; outline: none; }
+    .custom-input:focus { border-color: #3b82f6; background: white; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .drawer-actions { margin-top: 32px; display: flex; gap: 12px; }
+    .btn-cancel { flex: 1; border: 1px solid #e2e8f0; background: white; padding: 12px; border-radius: 10px; font-weight: 700; cursor: pointer; }
+    .btn-submit { flex: 1.5; border: none; background: #1e293b; color: white; padding: 12px; border-radius: 10px; font-weight: 700; cursor: pointer; }
+
+    @media (max-width: 1024px) {
+      .main-content { grid-template-columns: 1fr; }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 768px) {
+      .stats-grid { grid-template-columns: 1fr; }
+      .toolbar { flex-direction: column; align-items: stretch; }
+      .search-wrap { max-width: none; }
+    }
   `]
 })
 export class ExpensesComponent implements OnInit, OnDestroy {

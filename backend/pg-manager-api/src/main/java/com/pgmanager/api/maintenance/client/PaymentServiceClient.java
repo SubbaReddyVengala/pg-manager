@@ -1,37 +1,26 @@
 package com.pgmanager.api.maintenance.client;
 
-import lombok.Data;
+import com.pgmanager.api.payment.dto.PaymentStatsResponse;
+import com.pgmanager.api.payment.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestTemplate;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.Map;
+
 @Component("maintenancePaymentServiceClient")
 @RequiredArgsConstructor
 @Slf4j
 public class PaymentServiceClient {
 
-    private final RestTemplate restTemplate;
-
-    @Value("${payment-service.url}")
-    private String paymentServiceUrl;
+    private final PaymentService paymentService;
 
     public BigDecimal getMonthlyRevenue(LocalDate month) {
         try {
-            String url = paymentServiceUrl + "/payments/stats?month=" + month.toString();
-            Map<String, Object> response = restTemplate.getForObject(url, Map.class);
-            if (response != null && response.containsKey("collected")) {
-                Object collected = response.get("collected");
-                if (collected instanceof Number) {
-                    return new BigDecimal(collected.toString());
-                }
-            }
+            PaymentStatsResponse stats = paymentService.getStats(month);
+            return stats.getCollected() != null ? stats.getCollected() : BigDecimal.ZERO;
         } catch (Exception e) {
-            // Log error and return zero revenue as fallback
-            System.err.println("Failed to fetch revenue from payment-service: " + e.getMessage());
+            log.error("Failed to fetch revenue from payment-service: {}", e.getMessage());
         }
         return BigDecimal.ZERO;
     }

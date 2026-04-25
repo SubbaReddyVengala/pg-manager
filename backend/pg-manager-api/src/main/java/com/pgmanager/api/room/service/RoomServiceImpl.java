@@ -5,50 +5,65 @@ import com.pgmanager.api.room.entity.Room;
 import com.pgmanager.api.room.enums.RoomStatus;
 import com.pgmanager.api.room.repository.RoomRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.stream.Collectors;
-@Service @RequiredArgsConstructor
+@Service @RequiredArgsConstructor @Slf4j
 public class RoomServiceImpl implements RoomService {
 
     private final RoomRepository roomRepository;
     private final TenantServiceClient tenantClient;
+
     @Override
     public RoomResponse createRoom(RoomRequest req) {
-        if (roomRepository.existsByRoomNumber(req.getRoomNumber())) {
-            throw new RuntimeException("Room number already exists: " + req.getRoomNumber());
+        log.info("Attempting to create room: {}", req.getRoomNumber());
+        try {
+            if (roomRepository.existsByRoomNumber(req.getRoomNumber())) {
+                log.warn("Room number already exists: {}", req.getRoomNumber());
+                throw new RuntimeException("Room number already exists: " + req.getRoomNumber());
+            }
+            if (req.getStatus() == RoomStatus.OCCUPIED) {
+                log.warn("Cannot create new room with OCCUPIED status");
+                throw new RuntimeException("A new room cannot be created with OCCUPIED status.");
+            }
+            Room room = Room.builder()
+                    .roomNumber(req.getRoomNumber())
+                    .floor(req.getFloor())
+                    .roomType(req.getRoomType())
+                    .maxCapacity(req.getMaxCapacity())
+                    .rentAmount(req.getRentAmount())
+                    .amenities(req.getAmenities())
+                    .status(req.getStatus())
+                    .build();
+            
+            Room savedRoom = roomRepository.save(room);
+            log.info("Successfully saved room: {} with id: {}", savedRoom.getRoomNumber(), savedRoom.getId());
+            return toResponse(savedRoom);
+        } catch (Exception e) {
+            log.error("Error creating room {}: {}", req.getRoomNumber(), e.getMessage(), e);
+            throw e;
         }
-        if (req.getStatus() == RoomStatus.OCCUPIED) {
-            throw new RuntimeException("A new room cannot be created with OCCUPIED status.");
-        }
-        Room room = Room.builder()
-                .roomNumber(req.getRoomNumber())
-                .floor(req.getFloor())
-                .roomType(req.getRoomType())
-                .maxCapacity(req.getMaxCapacity())
-                .rentAmount(req.getRentAmount())
-                .amenities(req.getAmenities())
-                .status(req.getStatus())
-                .build();
-        return toResponse(roomRepository.save(room));
     }
 
     @Override
-    public List<RoomResponse> getAllRooms(RoomStatus status, String search) {
-        List<Room> rooms;
+    public Page<RoomResponse> getAllRooms(RoomStatus status, String search, Pageable pageable) {
+        Page<Room> rooms;
         boolean hasStatus = status != null;
         boolean hasSearch = search != null && !search.isBlank();
 
         if (hasStatus && hasSearch) {
-            rooms = roomRepository.findByStatusAndRoomNumberContainingIgnoreCase(status, search);
+            rooms = roomRepository.findByStatusAndRoomNumberContainingIgnoreCase(status, search, pageable);
         } else if (hasStatus) {
-            rooms = roomRepository.findByStatus(status);
+            rooms = roomRepository.findByStatus(status, pageable);
         } else if (hasSearch) {
-            rooms = roomRepository.findByRoomNumberContainingIgnoreCase(search);
+            rooms = roomRepository.findByRoomNumberContainingIgnoreCase(search, pageable);
         } else {
-            rooms = roomRepository.findAll();
+            rooms = roomRepository.findAll(pageable);
         }
-        return rooms.stream().map(this::toResponse).collect(Collectors.toList());
+        return rooms.map(this::toResponse);
     }
 
     @Override

@@ -9,6 +9,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
+
 @RestController
 @RequestMapping("/rooms")
 @RequiredArgsConstructor
@@ -16,13 +20,13 @@ public class RoomController {
 
     private final RoomService roomService;
 
-    // GET /rooms?status=AVAILABLE&search=101
-    // Supports: ALL rooms, filter by status, search by room number
+    // GET /rooms?status=AVAILABLE&search=101&page=0&size=20
     @GetMapping
-    public ResponseEntity<List<RoomResponse>> getAll(
+    public ResponseEntity<Page<RoomResponse>> getAll(
             @RequestParam(required = false) RoomStatus status,
-            @RequestParam(required = false) String search) {
-        return ResponseEntity.ok(roomService.getAllRooms(status, search));
+            @RequestParam(required = false) String search,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(roomService.getAllRooms(status, search, pageable));
     }
 
     // GET /rooms/{id}

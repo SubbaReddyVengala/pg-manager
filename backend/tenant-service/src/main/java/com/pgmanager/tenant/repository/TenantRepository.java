@@ -1,6 +1,8 @@
 package com.pgmanager.tenant.repository;
 import com.pgmanager.tenant.entity.Tenant;
 import com.pgmanager.tenant.enums.TenantStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -11,7 +13,7 @@ import java.util.Optional;
 public interface TenantRepository extends JpaRepository<Tenant, Long> {
 
     // Filter tabs: ALL / ACTIVE / PENDING / INACTIVE
-    List<Tenant> findByStatus(TenantStatus status);
+    Page<Tenant> findByStatus(TenantStatus status, Pageable pageable);
 
     // Search by name, phone, or room number (Screenshot 1 search box)
     @Query("""
@@ -20,7 +22,7 @@ public interface TenantRepository extends JpaRepository<Tenant, Long> {
         LOWER(t.phone)       LIKE LOWER(CONCAT('%',:q,'%')) OR
         LOWER(t.roomNumber)  LIKE LOWER(CONCAT('%',:q,'%'))
     """)
-    List<Tenant> search(@Param("q") String query);
+    Page<Tenant> search(@Param("q") String query, Pageable pageable);
 
     // Search + filter combined
     @Query("""
@@ -29,7 +31,7 @@ public interface TenantRepository extends JpaRepository<Tenant, Long> {
         LOWER(t.phone)       LIKE LOWER(CONCAT('%',:q,'%')) OR
         LOWER(t.roomNumber)  LIKE LOWER(CONCAT('%',:q,'%')))
     """)
-    List<Tenant> searchByStatus(@Param("status") TenantStatus status, @Param("q") String q);
+    Page<Tenant> searchByStatus(@Param("status") TenantStatus status, @Param("q") String q, Pageable pageable);
 
     // Stats cards
     long countByStatus(TenantStatus status);

@@ -35,7 +35,7 @@ public class RentDueScheduler {
         LocalDate firstOfMonth = LocalDate.now().withDayOfMonth(1);
         log.info("[Scheduler] Checking for overdue payments for {}", firstOfMonth);
         
-        List<com.pgmanager.api.payment.entity.RentPayment> pending = paymentRepository.findByRentMonthAndStatus(firstOfMonth, com.pgmanager.api.payment.enums.PaymentStatus.PENDING);
+        List<com.pgmanager.api.payment.entity.RentPayment> pending = paymentRepository.findByRentMonthAndStatus(firstOfMonth, com.pgmanager.api.payment.enums.PaymentStatus.PENDING, org.springframework.data.domain.Pageable.unpaged()).getContent();
         
         for (com.pgmanager.api.payment.entity.RentPayment p : pending) {
             // Update status to OVERDUE

@@ -27,9 +27,10 @@ Chart.register(...registerables);
       <!-- TOOLBAR -->
       <div class="toolbar">
         <div class="title-section">
+          <h2>Reports & Analytics</h2>
           <p>Financial & Occupancy Overview</p>
         </div>
-        <div class="actions">
+        <div class="spacer"></div>
         <div class="toolbar-actions">
           <select [(ngModel)]="selectedMonth" class="month-picker" (change)="loadData()">
             <option *ngFor="let m of monthOptions" [value]="m.value">{{ m.label }}</option>

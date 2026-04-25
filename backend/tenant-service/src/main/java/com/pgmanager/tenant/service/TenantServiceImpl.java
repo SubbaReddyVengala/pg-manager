@@ -9,6 +9,8 @@ import com.pgmanager.tenant.repository.TenantRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -75,22 +77,24 @@ public class TenantServiceImpl implements TenantService {
         return toResponse(tenant);
     }
 
-    // ── Get All Tenants ────────────────────────────────────
+    // ── Get All Tenants (Paginated) ────────────────────────
     @Override
-    public List<TenantResponse> getAllTenants(TenantStatus status, String search) {
+    public Page<TenantResponse> getAllTenants(TenantStatus status, String search, Pageable pageable) {
         boolean hasStatus = status != null;
         boolean hasSearch = search != null && !search.isBlank();
-        List<Tenant> tenants;
+        Page<Tenant> tenants;
+        
         if (hasStatus && hasSearch) {
-            tenants = tenantRepository.searchByStatus(status, search);
+            tenants = tenantRepository.searchByStatus(status, search, pageable);
         } else if (hasStatus) {
-            tenants = tenantRepository.findByStatus(status);
+            tenants = tenantRepository.findByStatus(status, pageable);
         } else if (hasSearch) {
-            tenants = tenantRepository.search(search);
+            tenants = tenantRepository.search(search, pageable);
         } else {
-            tenants = tenantRepository.findAll();
+            tenants = tenantRepository.findAll(pageable);
         }
-        return tenants.stream().map(this::toResponse).collect(Collectors.toList());
+        
+        return tenants.map(this::toResponse);
     }
 
     // ── Get Tenant By ID (detail view) ─────────────────────

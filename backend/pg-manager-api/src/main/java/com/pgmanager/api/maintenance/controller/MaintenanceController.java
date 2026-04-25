@@ -51,6 +51,12 @@ public class MaintenanceController {
         return ResponseEntity.ok(maintenanceService.resolveTicket(id, cost));
     }
 
+    @DeleteMapping("/tickets/{id}")
+    public ResponseEntity<Void> deleteTicket(@PathVariable Long id) {
+        maintenanceService.deleteTicket(id);
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/expenses")
     public ResponseEntity<Void> recordExpense(@Valid @RequestBody GeneralExpenseRequest req) {
         maintenanceService.recordExpense(req);

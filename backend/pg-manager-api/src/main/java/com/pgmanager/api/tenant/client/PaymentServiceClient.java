@@ -1,32 +1,31 @@
 package com.pgmanager.api.tenant.client;
 
-import lombok.Builder;
+import com.pgmanager.api.payment.dto.PaymentRequest;
+import com.pgmanager.api.payment.dto.PaymentResponse;
+import com.pgmanager.api.payment.enums.PaymentMode;
+import com.pgmanager.api.payment.service.PaymentService;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestTemplate;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
+
 @Component("tenantPaymentServiceClient")
 @RequiredArgsConstructor
 @Slf4j
 public class PaymentServiceClient {
 
-    private final RestTemplate restTemplate;
-
-    @Value("${payment-service.url}")
-    private String paymentServiceUrl;
+    private final PaymentService paymentService;
 
     public void recordInitialPayment(Long tenantId, BigDecimal amount, String note) {
         try {
-            String url = paymentServiceUrl + "/payments";
             LocalDate currentMonth = LocalDate.now().withDayOfMonth(1);
             
-            // Generate due for ONLY this tenant (avoids calling back for all tenants)
-            String genUrl = paymentServiceUrl + "/payments/generate-due-for-tenant?tenantId=" + tenantId + "&month=" + currentMonth;
-            restTemplate.postForObject(genUrl, null, Void.class);
+            // Generate due for ONLY this tenant
+            paymentService.generateDueForTenant(tenantId, currentMonth);
 
             // Now record the payment
             PaymentRequest req = PaymentRequest.builder()
@@ -34,20 +33,27 @@ public class PaymentServiceClient {
                     .rentMonth(currentMonth)
                     .amountPaid(amount)
                     .paymentDate(LocalDate.now())
-                    .paymentMode("CASH")
+                    .paymentMode(PaymentMode.CASH)
                     .note(note)
                     .build();
 
-            restTemplate.postForObject(url, req, Object.class);
+            paymentService.recordPayment(req);
         } catch (Exception e) {
-            System.err.println("Failed to record initial payment for tenant " + tenantId + ": " + e.getMessage());
+            log.error("Failed to record initial payment for tenant {}: {}", tenantId, e.getMessage());
+        }
+    }
+
+    public void generateDueForTenant(Long tenantId, LocalDate month) {
+        try {
+            paymentService.generateDueForTenant(tenantId, month);
+        } catch (Exception e) {
+            log.error("Failed to generate due for tenant {}: {}", tenantId, e.getMessage());
         }
     }
 
     public TenantPaymentSummary getTenantPaymentSummary(Long tenantId) {
         try {
-            String url = paymentServiceUrl + "/payments/tenant/" + tenantId;
-            PaymentResponse[] responses = restTemplate.getForObject(url, PaymentResponse[].class);
+            List<PaymentResponse> responses = paymentService.getPaymentsByTenant(tenantId);
             
             BigDecimal totalPaid = BigDecimal.ZERO;
             BigDecimal outstanding = BigDecimal.ZERO;
@@ -64,36 +70,14 @@ public class PaymentServiceClient {
             }
             return new TenantPaymentSummary(totalPaid, outstanding);
         } catch (Exception e) {
-            System.err.println("Failed to fetch payment summary for tenant " + tenantId + ": " + e.getMessage());
+            log.error("Failed to fetch payment summary for tenant {}: {}", tenantId, e.getMessage());
             return new TenantPaymentSummary(BigDecimal.ZERO, BigDecimal.ZERO);
         }
-    }
-
-    @Data
-    public static class PaymentResponse {
-        private BigDecimal amountPaid;
-        private BigDecimal balance;
     }
 
     @Data @RequiredArgsConstructor
     public static class TenantPaymentSummary {
         private final BigDecimal totalPaid;
         private final BigDecimal outstanding;
-    }
-
-    @Data @Builder
-    public static class PaymentRequest {
-        private Long tenantId;
-        private LocalDate rentMonth;
-        private BigDecimal amountPaid;
-        private LocalDate paymentDate;
-        private String paymentMode;
-        private String note;
-    }
-
-    @Data
-    public static class GenerateDuesRequest {
-        private LocalDate month;
-        public GenerateDuesRequest(LocalDate month) { this.month = month; }
     }
 }

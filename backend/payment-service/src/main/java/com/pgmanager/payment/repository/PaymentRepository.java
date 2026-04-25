@@ -2,6 +2,8 @@ package com.pgmanager.payment.repository;
 
 import com.pgmanager.payment.entity.RentPayment;
 import com.pgmanager.payment.enums.PaymentStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -13,10 +15,10 @@ import java.util.Optional;
 public interface PaymentRepository extends JpaRepository<RentPayment, Long> {
 
     // All payments for a specific month (month picker)
-    List<RentPayment> findByRentMonth(LocalDate rentMonth);
+    Page<RentPayment> findByRentMonth(LocalDate rentMonth, Pageable pageable);
 
     // Filter by month + status (filter tabs)
-    List<RentPayment> findByRentMonthAndStatus(LocalDate rentMonth, PaymentStatus status);
+    Page<RentPayment> findByRentMonthAndStatus(LocalDate rentMonth, PaymentStatus status, Pageable pageable);
 
     // Check if due already generated for this tenant+month (idempotency)
     Optional<RentPayment> findByTenantIdAndRentMonth(Long tenantId, LocalDate rentMonth);

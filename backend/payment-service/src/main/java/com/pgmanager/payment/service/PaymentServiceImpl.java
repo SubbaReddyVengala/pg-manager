@@ -27,13 +27,13 @@ public class PaymentServiceImpl implements PaymentService {
     private final com.pgmanager.payment.client.NotificationServiceClient notificationClient;
 
     @Override
-    public List<PaymentResponse> getPaymentsByMonth(LocalDate month, PaymentStatus status) {
+    public Page<PaymentResponse> getPaymentsByMonth(LocalDate month, PaymentStatus status, Pageable pageable) {
         LocalDate firstOfMonth = month.withDayOfMonth(1);
-        List<RentPayment> payments = status != null
-                ? paymentRepository.findByRentMonthAndStatus(firstOfMonth, status)
-                : paymentRepository.findByRentMonth(firstOfMonth);
+        Page<RentPayment> payments = status != null
+                ? paymentRepository.findByRentMonthAndStatus(firstOfMonth, status, pageable)
+                : paymentRepository.findByRentMonth(firstOfMonth, pageable);
         payments.forEach(this::refreshOverdueStatus);
-        return payments.stream().map(this::toResponse).collect(Collectors.toList());
+        return payments.map(this::toResponse);
     }
 
     @Override

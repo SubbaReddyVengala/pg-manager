@@ -1,6 +1,8 @@
 package com.pgmanager.api.room.repository;
 import com.pgmanager.api.room.entity.Room;
 import com.pgmanager.api.room.enums.RoomStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import java.util.List;
@@ -9,14 +11,14 @@ import java.util.Optional;
 public interface RoomRepository extends JpaRepository<Room, Long> {
 
     // Used by filter tabs: ALL / AVAILABLE / OCCUPIED / MAINTENANCE
-    List<Room> findByStatus(RoomStatus status);
+    Page<Room> findByStatus(RoomStatus status, Pageable pageable);
 
     // Used by search box in room table
-    List<Room> findByRoomNumberContainingIgnoreCase(String roomNumber);
+    Page<Room> findByRoomNumberContainingIgnoreCase(String roomNumber, Pageable pageable);
 
     // Used by status filter + search combined
-    List<Room> findByStatusAndRoomNumberContainingIgnoreCase(
-            RoomStatus status, String roomNumber);
+    Page<Room> findByStatusAndRoomNumberContainingIgnoreCase(
+            RoomStatus status, String roomNumber, Pageable pageable);
 
     // Prevent duplicate room numbers
     boolean existsByRoomNumber(String roomNumber);

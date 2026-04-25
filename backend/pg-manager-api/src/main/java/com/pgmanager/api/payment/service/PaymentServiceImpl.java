@@ -12,6 +12,9 @@ import com.pgmanager.api.payment.enums.PaymentStatus;
 import com.pgmanager.api.payment.repository.PaymentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -27,13 +30,23 @@ public class PaymentServiceImpl implements PaymentService {
     private final com.pgmanager.api.payment.client.NotificationServiceClient notificationClient;
 
     @Override
-    public List<PaymentResponse> getPaymentsByMonth(LocalDate month, PaymentStatus status) {
+    public Page<PaymentResponse> getPaymentsByMonth(LocalDate month, PaymentStatus status, String search, Pageable pageable) {
         LocalDate firstOfMonth = month.withDayOfMonth(1);
-        List<RentPayment> payments = status != null
-                ? paymentRepository.findByRentMonthAndStatus(firstOfMonth, status)
-                : paymentRepository.findByRentMonth(firstOfMonth);
-        payments.forEach(this::refreshOverdueStatus);
-        return payments.stream().map(this::toResponse).collect(Collectors.toList());
+        boolean hasSearch = search != null && !search.isBlank();
+        Page<RentPayment> page;
+
+        if (status != null && hasSearch) {
+            page = paymentRepository.searchByMonthAndStatus(firstOfMonth, status, search, pageable);
+        } else if (status != null) {
+            page = paymentRepository.findByRentMonthAndStatus(firstOfMonth, status, pageable);
+        } else if (hasSearch) {
+            page = paymentRepository.searchByMonth(firstOfMonth, search, pageable);
+        } else {
+            page = paymentRepository.findByRentMonth(firstOfMonth, pageable);
+        }
+
+        page.getContent().forEach(this::refreshOverdueStatus);
+        return page.map(this::toResponse);
     }
 
     @Override

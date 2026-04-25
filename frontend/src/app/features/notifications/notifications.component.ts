@@ -137,6 +137,10 @@ export class NotificationsComponent implements OnInit, OnDestroy {
     this.roomService.refresh$
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => this.loadAll());
+
+    this.notificationService.refresh$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => this.loadAll());
   }
 
   ngOnDestroy(): void {
@@ -165,11 +169,8 @@ export class NotificationsComponent implements OnInit, OnDestroy {
 
   markAllAsRead(): void {
     this.notificationService.markAllRead().pipe(takeUntil(this.destroy$)).subscribe(() => {
-      this.alerts.forEach(n => n.isRead = true);
-      this.unreadCount = 0;
-      this.applyFilter();
+      this.notificationService.triggerRefresh();
       this.snackBar.open('All marked as read.', 'Close', { duration: 2000 });
-      this.cdr.detectChanges();
     });
   }
 

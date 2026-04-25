@@ -1,59 +1,45 @@
 package com.pgmanager.api.tenant.client;
+
+import com.pgmanager.api.room.dto.RoomResponse;
+import com.pgmanager.api.room.enums.RoomStatus;
+import com.pgmanager.api.room.service.RoomService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestTemplate;
+
 @Component("tenantRoomServiceClient")
 @RequiredArgsConstructor
 @Slf4j
 public class RoomServiceClient {
 
-    private final RestTemplate restTemplate;
-
-    @Value("${room-service.url}")
-    private String roomServiceUrl;
+    private final RoomService roomService;
 
     // Called when assigning room to tenant
-    // Sets room status to OCCUPIED
     public void markOccupied(Long roomId) {
-        String url = roomServiceUrl + "/rooms/" + roomId + "/status?status=OCCUPIED";
-        restTemplate.patchForObject(url, null, Void.class);
+        roomService.updateStatus(roomId, RoomStatus.OCCUPIED);
     }
 
     // Called when tenant moves out
-    // Sets room status back to AVAILABLE
     public void markAvailable(Long roomId) {
-        String url = roomServiceUrl + "/rooms/" + roomId + "/status?status=AVAILABLE";
-        restTemplate.patchForObject(url, null, Void.class);
+        roomService.updateStatus(roomId, RoomStatus.AVAILABLE);
     }
 
     // Gets room number by id -- used when assigning room
     public String getRoomNumber(Long roomId) {
         try {
-            String url = roomServiceUrl + "/rooms/" + roomId;
-            RoomInfo info = restTemplate.getForObject(url, RoomInfo.class);
-            return info != null ? info.getRoomNumber() : null;
+            RoomResponse room = roomService.getRoomById(roomId);
+            return room != null ? room.getRoomNumber() : null;
         } catch (Exception e) {
+            log.error("Error fetching room number for id {}: {}", roomId, e.getMessage());
             return null;
         }
     }
 
-    // Inner class -- only needs roomNumber from room-service response
-    @lombok.Data
-    public static class RoomInfo {
-        private Long   id;
-        private String roomNumber;
-        private Integer floor;
-        private String status;
-    }
     public void incrementOccupancy(Long roomId) {
-        String url = roomServiceUrl + "/rooms/" + roomId + "/occupancy/increment";
-        restTemplate.patchForObject(url, null, String.class);
+        roomService.incrementOccupancy(roomId);
     }
 
     public void decrementOccupancy(Long roomId) {
-        String url = roomServiceUrl + "/rooms/" + roomId + "/occupancy/decrement";
-        restTemplate.patchForObject(url, null, String.class);
+        roomService.decrementOccupancy(roomId);
     }
 }

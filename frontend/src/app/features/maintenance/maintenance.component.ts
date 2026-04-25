@@ -138,6 +138,15 @@ export class MaintenanceComponent implements OnInit, OnDestroy {
     );
   }
 
+  deleteTicket(id: number): void {
+    if (confirm('Are you sure you want to delete this ticket?')) {
+      this.maintenanceService.deleteTicket(id).subscribe(() => {
+        this.loadData();
+        this.maintenanceService.triggerRefresh();
+      });
+    }
+  }
+
   getTicketIcon(description: string): string {
     const d = description?.toLowerCase() || '';
     if (d.includes('ac') || d.includes('cool')) return 'ac_unit';

@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
   TenantResponse, TenantDetailResponse,
-  TenantRequest, TenantStats
+  TenantRequest, TenantStats, PaginatedResponse
 } from '../../shared/models/tenant.models';
 import { RoomResponse } from '../../shared/models/room.models';
 
@@ -14,8 +14,16 @@ export class TenantService {
   private base = `${environment.apiUrl}/tenants`;
   private roomBase = `${environment.apiUrl}/rooms`;
 
-  getAll(): Observable<TenantResponse[]> {
-    return this.http.get<TenantResponse[]>(this.base);
+  getAll(page: number = 0, size: number = 20, status?: string, search?: string, sort?: string): Observable<PaginatedResponse<TenantResponse>> {
+    let params = new HttpParams()
+      .set('page', page.toString())
+      .set('size', size.toString());
+    
+    if (status && status !== 'ALL') params = params.set('status', status);
+    if (search) params = params.set('search', search);
+    if (sort) params = params.set('sort', sort);
+
+    return this.http.get<PaginatedResponse<TenantResponse>>(this.base, { params });
   }
 
   getStats(): Observable<TenantStats> {

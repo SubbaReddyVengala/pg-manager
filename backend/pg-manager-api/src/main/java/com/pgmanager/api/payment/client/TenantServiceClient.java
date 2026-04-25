@@ -1,51 +1,59 @@
 package com.pgmanager.api.payment.client;
 
+import com.pgmanager.api.tenant.entity.Tenant;
+import com.pgmanager.api.tenant.enums.TenantStatus;
+import com.pgmanager.api.tenant.repository.TenantRepository;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestTemplate;
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.List;
+import java.util.stream.Collectors;
+
 @Component("paymentTenantServiceClient")
 @RequiredArgsConstructor
 @Slf4j
 public class TenantServiceClient {
 
-    private final RestTemplate restTemplate;
-
-    @Value("${tenant-service.url}")
-    private String tenantServiceUrl;
+    private final TenantRepository tenantRepository;
 
     public List<TenantInfo> getActiveTenants() {
-        String url = tenantServiceUrl + "/tenants?status=ACTIVE";
-        return restTemplate.exchange(
-                url, HttpMethod.GET, null,
-                new ParameterizedTypeReference<List<TenantInfo>>() {}
-        ).getBody();
+        return tenantRepository.findAll().stream()
+                .filter(t -> t.getStatus() == TenantStatus.ACTIVE)
+                .map(this::mapToInfo)
+                .collect(Collectors.toList());
     }
 
     public TenantInfo getTenant(Long id) {
-        String url = tenantServiceUrl + "/tenants/" + id;
-        return restTemplate.getForObject(url, TenantInfo.class);
+        return tenantRepository.findById(id)
+                .map(this::mapToInfo)
+                .orElse(null);
     }
 
-    // Gets total security deposits from all active tenants
     public BigDecimal getTotalDeposits() {
-        List<TenantInfo> tenants = getActiveTenants();
-        if (tenants == null) return BigDecimal.ZERO;
-        return tenants.stream()
+        return tenantRepository.findAll().stream()
+                .filter(t -> t.getStatus() == TenantStatus.ACTIVE)
                 .map(t -> t.getSecurityDeposit() != null ? t.getSecurityDeposit() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     public long getActiveTenantsCount() {
-        List<TenantInfo> tenants = getActiveTenants();
-        return tenants != null ? tenants.size() : 0;
+        return tenantRepository.countByStatus(TenantStatus.ACTIVE);
+    }
+
+    private TenantInfo mapToInfo(Tenant t) {
+        TenantInfo info = new TenantInfo();
+        info.setId(t.getId());
+        info.setFullName(t.getFullName());
+        info.setEmail(t.getEmail());
+        info.setRoomId(t.getRoomId());
+        info.setRoomNumber(t.getRoomNumber());
+        info.setMonthlyRent(t.getMonthlyRent());
+        info.setSecurityDeposit(t.getSecurityDeposit());
+        info.setRentDueDay(t.getRentDueDay());
+        info.setStatus(t.getStatus() != null ? t.getStatus().name() : null);
+        return info;
     }
 
     @Data

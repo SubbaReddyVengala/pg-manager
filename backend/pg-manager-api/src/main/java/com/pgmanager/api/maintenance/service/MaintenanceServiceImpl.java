@@ -122,6 +122,15 @@ public class MaintenanceServiceImpl implements MaintenanceService {
     }
 
     @Override
+    @Transactional
+    public void deleteTicket(Long ticketId) {
+        if (!ticketRepository.existsById(ticketId)) {
+            throw new RuntimeException("Ticket not found");
+        }
+        ticketRepository.deleteById(ticketId);
+    }
+
+    @Override
     public List<GeneralExpense> getExpenses(LocalDate month) {
         LocalDate start = month.withDayOfMonth(1);
         LocalDate end = month.withDayOfMonth(month.lengthOfMonth());

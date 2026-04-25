@@ -32,4 +32,7 @@ public class TenantRequest {
     private String emergencyContact;
     private String emergencyPhone;
     private String permanentAddress;
+
+    // UI FLAGS
+    private boolean recordInitialPayment = true; // default to true
 }

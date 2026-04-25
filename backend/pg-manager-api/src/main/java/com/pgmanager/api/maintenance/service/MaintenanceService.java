@@ -13,6 +13,7 @@ public interface MaintenanceService {
     MaintenanceTicketResponse resolveTicket(Long ticketId, BigDecimal cost);
     List<MaintenanceTicketResponse> getTickets(MaintenanceStatus status);
     MaintenanceStatsResponse getStats();
+    void deleteTicket(Long ticketId);
     
     void recordExpense(GeneralExpenseRequest req);
     List<GeneralExpense> getExpenses(LocalDate month);

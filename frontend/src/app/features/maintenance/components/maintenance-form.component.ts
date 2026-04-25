@@ -176,8 +176,10 @@ export class MaintenanceFormComponent implements OnInit {
   }
 
   loadRooms(): void {
-    this.roomService.getRooms().subscribe({
-      next: (data: RoomResponse[]) => {
+    // Fetch a large enough batch for the dropdown (e.g., 200)
+    this.roomService.getRooms(null, '', 0, 200).subscribe({
+      next: (res) => {
+        const data = res.content || [];
         this.rooms = data.sort((a: RoomResponse, b: RoomResponse) => a.roomNumber.localeCompare(b.roomNumber));
       },
       error: () => this.snackBar.open('Error loading rooms.', 'Close', { duration: 3000 })

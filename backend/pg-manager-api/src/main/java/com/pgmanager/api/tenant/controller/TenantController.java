@@ -8,6 +8,10 @@ import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
+
 @RestController
 @RequestMapping("/tenants")
 @RequiredArgsConstructor
@@ -15,12 +19,13 @@ public class TenantController {
 
     private final TenantService tenantService;
 
-    // GET /tenants?status=ACTIVE&search=Ravi
+    // GET /tenants?page=0&size=20&sort=fullName,asc
     @GetMapping
-    public ResponseEntity<List<TenantResponse>> getAll(
+    public ResponseEntity<Page<TenantResponse>> getAll(
             @RequestParam(required=false) TenantStatus status,
-            @RequestParam(required=false) String search) {
-        return ResponseEntity.ok(tenantService.getAllTenants(status, search));
+            @RequestParam(required=false) String search,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(tenantService.getAllTenants(status, search, pageable));
     }
 
     // GET /tenants/stats  (4 stat cards in Screenshot 1)
@@ -71,6 +76,16 @@ public class TenantController {
             @PathVariable Long id,
             @Valid @RequestBody MoveOutRequest request) {
         return ResponseEntity.ok(tenantService.moveOut(id, request));
+    }
+
+    // GET /tenants/{id}/agreement
+    @GetMapping("/{id}/agreement")
+    public ResponseEntity<byte[]> getAgreement(@PathVariable Long id) {
+        byte[] pdf = tenantService.generateAgreement(id);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=agreement-" + id + ".pdf")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdf);
     }
 
     // DELETE /tenants/{id}  (blocked for ACTIVE tenants)

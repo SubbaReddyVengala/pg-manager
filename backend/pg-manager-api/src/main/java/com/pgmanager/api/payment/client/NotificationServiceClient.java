@@ -1,26 +1,28 @@
 package com.pgmanager.api.payment.client;
 
+import com.pgmanager.api.notification.service.NotificationService;
 import lombok.Builder;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestTemplate;
 
 @Component("paymentNotificationServiceClient")
 @RequiredArgsConstructor
 @Slf4j
 public class NotificationServiceClient {
 
-    private final RestTemplate restTemplate;
-
-    @Value("${notification.service.url:http://notification-service:8087/notifications}")
-    private String notificationServiceUrl;
+    private final NotificationService notificationService;
 
     public void send(NotificationRequest request) {
         try {
-            restTemplate.postForEntity(notificationServiceUrl + "/send", request, Void.class);
+            notificationService.sendNotification(com.pgmanager.api.notification.dto.NotificationRequest.builder()
+                    .recipient(request.getRecipient())
+                    .subject(request.getSubject())
+                    .message(request.getMessage())
+                    .type(request.getType())
+                    .tenantId(request.getTenantId())
+                    .build());
             log.info("Notification sent successfully: {}", request.getSubject());
         } catch (Exception e) {
             log.error("Failed to send notification: {}", e.getMessage());

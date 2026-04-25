@@ -2,11 +2,17 @@ package com.pgmanager.api.payment.dto;
 
 import com.pgmanager.api.payment.enums.PaymentMode;
 import jakarta.validation.constraints.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class PaymentRequest {
 
     @NotNull(message = "Tenant ID is required")

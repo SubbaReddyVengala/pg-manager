@@ -5,6 +5,8 @@ import com.pgmanager.payment.enums.PaymentStatus;
 import com.pgmanager.payment.service.PaymentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
@@ -18,13 +20,13 @@ public class PaymentController {
 
     private final PaymentService paymentService;
 
-    // GET /payments?month=2026-03-01&status=PAID
-    // Powers the main payment table with month picker + filter tabs
+    // GET /payments?month=2026-03-01&status=PAID&page=0&size=20
     @GetMapping
-    public ResponseEntity<List<PaymentResponse>> getAll(
+    public ResponseEntity<Page<PaymentResponse>> getAll(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate month,
-            @RequestParam(required = false) PaymentStatus status) {
-        return ResponseEntity.ok(paymentService.getPaymentsByMonth(month, status));
+            @RequestParam(required = false) PaymentStatus status,
+            Pageable pageable) {
+        return ResponseEntity.ok(paymentService.getPaymentsByMonth(month, status, pageable));
     }
 
     // GET /payments/stats?month=2026-03-01

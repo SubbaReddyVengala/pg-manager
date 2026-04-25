@@ -5,10 +5,17 @@ import com.itextpdf.kernel.pdf.*;
 import com.itextpdf.layout.Document;
 import com.itextpdf.layout.element.Paragraph;
 import com.itextpdf.layout.properties.TextAlignment;
+import com.pgmanager.api.maintenance.dto.MaintenanceStatsResponse;
+import com.pgmanager.api.maintenance.dto.NetProfitResponse;
+import com.pgmanager.api.maintenance.service.MaintenanceService;
 import com.pgmanager.api.payment.dto.*;
 import com.pgmanager.api.payment.entity.RentPayment;
 import com.pgmanager.api.payment.enums.PaymentStatus;
 import com.pgmanager.api.payment.repository.PaymentRepository;
+import com.pgmanager.api.room.dto.RoomStatsResponse;
+import com.pgmanager.api.room.service.RoomService;
+import com.pgmanager.api.tenant.dto.TenantStatsResponse;
+import com.pgmanager.api.tenant.service.TenantService;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -19,6 +26,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -29,12 +37,107 @@ public class ReportServiceImpl implements ReportService {
 
     private final PaymentRepository paymentRepository;
     private final PaymentServiceImpl paymentService;
+    private final RoomService roomService;
+    private final TenantService tenantService;
+    private final MaintenanceService maintenanceService;
+
+    // ── Dashboard Summary ─────────────────────────────────────────────────
+    @Override
+    public DashboardSummaryResponse getDashboardSummary() {
+        LocalDate currentMonth = LocalDate.now().withDayOfMonth(1);
+        
+        RoomStatsResponse roomStats = roomService.getStats();
+        TenantStatsResponse tenantStats = tenantService.getStats();
+        PaymentStatsResponse paymentStats = paymentService.getStats(currentMonth);
+        MaintenanceStatsResponse maintenanceStats = maintenanceService.getStats();
+        NetProfitResponse netProfit = maintenanceService.getNetProfit(currentMonth);
+
+        return DashboardSummaryResponse.builder()
+                .totalRooms(roomStats.getTotalRooms())
+                .occupiedRooms(roomStats.getOccupied())
+                .availableRooms(roomStats.getAvailable())
+                .maintenanceRooms(roomStats.getMaintenance())
+                .occupancyRate(roomStats.getOccupancyRate())
+                .floorCount(roomStats.getFloorCount())
+                
+                .monthlyRevenue(netProfit.getTotalRevenue())
+                .monthlyExpenses(netProfit.getTotalMaintenanceCost().add(netProfit.getTotalGeneralExpenses()))
+                .monthlyProfit(netProfit.getNetProfit())
+                .outstandingAmount(paymentStats.getOutstanding())
+                .revenueGrowthRate(paymentStats.getGrowthRate())
+                
+                .activeTenants(tenantStats.getActive())
+                .pendingTenants(tenantStats.getPending())
+                
+                .openMaintenanceTickets(maintenanceStats.getOpenCount())
+                .overduePaymentsCount(paymentStats.getOverdueCount())
+                .build();
+    }
+
+    // ── Occupancy Trend ───────────────────────────────────────────────────
+    @Override
+    public OccupancyTrendResponse getOccupancyTrend(int months) {
+        List<OccupancyTrendResponse.MonthOccupancy> trends = new ArrayList<>();
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("MMM yyyy");
+        
+        for (int i = months - 1; i >= 0; i--) {
+            LocalDate month = LocalDate.now().minusMonths(i).withDayOfMonth(1);
+            RoomStatsResponse stats = roomService.getStats();
+            TenantStatsResponse tStats = tenantService.getStats();
+
+            trends.add(OccupancyTrendResponse.MonthOccupancy.builder()
+                    .monthLabel(month.format(fmt))
+                    .month(month)
+                    .occupancyRate(stats.getOccupancyRate())
+                    .totalTenants((int) tStats.getActive())
+                    .build());
+        }
+        return OccupancyTrendResponse.builder().trends(trends).build();
+    }
+
+    // ── Profit Trend ──────────────────────────────────────────────────────
+    @Override
+    public ProfitTrendResponse getProfitTrend(int months) {
+        List<ProfitTrendResponse.MonthProfit> trends = new ArrayList<>();
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("MMM yyyy");
+
+        for (int i = months - 1; i >= 0; i--) {
+            LocalDate month = LocalDate.now().minusMonths(i).withDayOfMonth(1);
+            NetProfitResponse profit = maintenanceService.getNetProfit(month);
+
+            trends.add(ProfitTrendResponse.MonthProfit.builder()
+                    .monthLabel(month.format(fmt))
+                    .month(month)
+                    .revenue(profit.getTotalRevenue())
+                    .expenses(profit.getTotalMaintenanceCost().add(profit.getTotalGeneralExpenses()))
+                    .profit(profit.getNetProfit())
+                    .build());
+        }
+        return ProfitTrendResponse.builder().trends(trends).build();
+    }
+
+    // ── Outstanding Dues ──────────────────────────────────────────────────
+    @Override
+    public List<OutstandingDueResponse> getOutstandingDues() {
+        LocalDate firstOfMonth = LocalDate.now().withDayOfMonth(1);
+        List<RentPayment> overduePayments = paymentRepository.findByStatus(PaymentStatus.OVERDUE);
+        
+        return overduePayments.stream()
+                .map(p -> OutstandingDueResponse.builder()
+                        .tenantName(p.getTenantName())
+                        .roomNumber(p.getRoomNumber())
+                        .amountDue(p.getBalance())
+                        .daysOverdue(ChronoUnit.DAYS.between(p.getRentMonth().withDayOfMonth(5), LocalDate.now()))
+                        .lastReminder(null)
+                        .build())
+                .collect(Collectors.toList());
+    }
 
     // ── Monthly Report ────────────────────────────────────────────────────
     @Override
     public MonthlyReportResponse getMonthlyReport(LocalDate month) {
         LocalDate firstOfMonth = month.withDayOfMonth(1);
-        List<RentPayment> payments = paymentRepository.findByRentMonth(firstOfMonth);
+        List<RentPayment> payments = paymentRepository.findByRentMonth(firstOfMonth, org.springframework.data.domain.Pageable.unpaged()).getContent();
 
         BigDecimal totalCollected = payments.stream()
                 .map(RentPayment::getAmountPaid)
@@ -88,7 +191,7 @@ public class ReportServiceImpl implements ReportService {
 
         for (int m = 1; m <= 12; m++) {
             LocalDate monthDate = LocalDate.of(year, m, 1);
-            List<RentPayment> payments = paymentRepository.findByRentMonth(monthDate);
+            List<RentPayment> payments = paymentRepository.findByRentMonth(monthDate, org.springframework.data.domain.Pageable.unpaged()).getContent();
 
             BigDecimal collected = payments.stream()
                     .map(RentPayment::getAmountPaid)

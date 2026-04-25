@@ -4,6 +4,8 @@ import com.pgmanager.tenant.enums.TenantStatus;
 import com.pgmanager.tenant.service.TenantService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
@@ -15,12 +17,13 @@ public class TenantController {
 
     private final TenantService tenantService;
 
-    // GET /tenants?status=ACTIVE&search=Ravi
+    // GET /tenants?status=ACTIVE&search=Ravi&page=0&size=20&sort=fullName,asc
     @GetMapping
-    public ResponseEntity<List<TenantResponse>> getAll(
+    public ResponseEntity<Page<TenantResponse>> getAll(
             @RequestParam(required=false) TenantStatus status,
-            @RequestParam(required=false) String search) {
-        return ResponseEntity.ok(tenantService.getAllTenants(status, search));
+            @RequestParam(required=false) String search,
+            Pageable pageable) {
+        return ResponseEntity.ok(tenantService.getAllTenants(status, search, pageable));
     }
 
     // GET /tenants/stats  (4 stat cards in Screenshot 1)

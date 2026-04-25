@@ -1,105 +1,110 @@
-<div class="maintenance-container">
-  <!-- Stat Cards -->
+<div class="maintenance-container animate-in">
+  <!-- STATS GRID -->
   <div class="stats-grid">
-    <div class="stat-card open">
-      <span class="label">OPEN</span>
-      <div class="value-row">
-        <span class="value">{{stats.openCount}}</span>
-        <span class="indicator red"></span>
-      </div>
+    <div class="stat-card glass hover-lift">
+       <div class="st-icon-bg red"><mat-icon>priority_high</mat-icon></div>
+       <div class="st-info">
+          <div class="st-label">Open Tickets</div>
+          <div class="st-val">{{stats.openCount}}</div>
+       </div>
     </div>
-    <div class="stat-card in-progress">
-      <span class="label">IN PROGRESS</span>
-      <div class="value-row">
-        <span class="value">{{stats.inProgressCount}}</span>
-        <span class="indicator blue"></span>
-      </div>
+    <div class="stat-card glass hover-lift">
+       <div class="st-icon-bg blue"><mat-icon>engineering</mat-icon></div>
+       <div class="st-info">
+          <div class="st-label">In Progress</div>
+          <div class="st-val">{{stats.inProgressCount}}</div>
+       </div>
     </div>
-    <div class="stat-card resolved">
-      <span class="label">RESOLVED</span>
-      <div class="value-row">
-        <span class="value">{{stats.resolvedCount}}</span>
-        <span class="indicator green"></span>
-      </div>
+    <div class="stat-card glass hover-lift">
+       <div class="st-icon-bg green"><mat-icon>check_circle</mat-icon></div>
+       <div class="st-info">
+          <div class="st-label">Resolved</div>
+          <div class="st-val">{{stats.resolvedCount}}</div>
+       </div>
     </div>
-    <div class="stat-card avg">
-      <span class="label">AVG RESOLUTION</span>
-      <div class="value-row">
-        <span class="value">{{stats.avgResolutionTime}}</span>
-        <span class="indicator clock"></span>
-      </div>
+    <div class="stat-card glass hover-lift">
+       <div class="st-icon-bg purple"><mat-icon>history</mat-icon></div>
+       <div class="st-info">
+          <div class="st-label">Avg. Resolution</div>
+          <div class="st-val">{{stats.avgResolutionTime}}</div>
+       </div>
     </div>
   </div>
 
-  <!-- Filter & Search Toolbar -->
-  <div class="toolbar">
+  <!-- TOOLBAR -->
+  <div class="toolbar glass">
     <div class="search-wrap">
       <mat-icon>search</mat-icon>
-      <input type="text" placeholder="Search complaints..." (input)="onSearch($event)">
+      <input type="text" placeholder="Search by description, room or tenant..." (input)="onSearch($event)">
     </div>
     <div class="filter-tabs">
-      <button [class.active]="activeTab === 'ALL'" (click)="setTab('ALL')">ALL</button>
-      <button [class.active]="activeTab === 'OPEN'" (click)="setTab('OPEN')">OPEN</button>
-      <button [class.active]="activeTab === 'IN_PROGRESS'" (click)="setTab('IN_PROGRESS')">IN PROGRESS</button>
-      <button [class.active]="activeTab === 'RESOLVED'" (click)="setTab('RESOLVED')">RESOLVED</button>
+      <button *ngFor="let t of ['ALL', 'OPEN', 'IN_PROGRESS', 'RESOLVED']" 
+              [class.active]="activeTab === t" (click)="setTab(t)">
+        {{ t.replace('_', ' ') }}
+      </button>
     </div>
     <div class="spacer"></div>
     <div class="toolbar-actions">
-      <button class="btn btn-primary main-action" (click)="openForm('TICKET')">
+      <button class="add-btn" (click)="openForm('TICKET')">
         <mat-icon>add</mat-icon> Raise Ticket
       </button>
     </div>
   </div>
 
-  <!-- Tickets List -->
-  <div class="tickets-list">
-    <div class="ticket-card" *ngFor="let ticket of filteredTickets">
-      <div class="ticket-icon-wrap">
-        <mat-icon [style.color]="getTicketIconColor(ticket.description)">
-          {{getTicketIcon(ticket.description)}}
-        </mat-icon>
-      </div>
-      
-      <div class="ticket-main">
-        <div class="ticket-header">
-          <h3 class="ticket-title">{{ticket.description}} — Room {{ticket.roomNumber}}</h3>
-          <span class="status-badge" [class]="ticket.status.toLowerCase()">{{ticket.status}}</span>
+  <!-- TICKETS LIST -->
+  <div class="tickets-grid">
+    <div class="ticket-item glass hover-lift" *ngFor="let t of filteredTickets" [class.is-overdue]="t.priority === 'URGENT' && t.status !== 'RESOLVED'">
+      <div class="ticket-header">
+        <div class="t-icon-box" [style.background]="getTicketIconColor(t.description) + '15'" [style.color]="getTicketIconColor(t.description)">
+          <mat-icon>{{getTicketIcon(t.description)}}</mat-icon>
         </div>
-        
-        <p class="reported-by">Reported by: {{ticket.tenantName || 'Admin'}} (Room {{ticket.roomNumber}})</p>
-        
-        <div class="ticket-footer">
-          <div class="meta-info">
-            <span class="meta-date">Raised: {{ticket.reportedAt | date:'dd-MMM-yyyy'}}</span>
-            <span class="divider">|</span>
-            <span class="priority-label" [class]="ticket.priority.toLowerCase()">Priority: <strong>{{ticket.priority}}</strong></span>
-            <span class="cost-label" *ngIf="ticket.status === 'RESOLVED'">
-              <span class="divider">|</span> Cost: <strong>₹{{ticket.cost | number}}</strong>
-            </span>
-          </div>
-          
-          <div class="card-actions">
-            <button *ngIf="ticket.status === 'OPEN'" class="action-btn start-btn" (click)="startWork(ticket.id)">
-              Start Work
-            </button>
-            <button *ngIf="ticket.status === 'IN_PROGRESS'" class="action-btn resolve-btn" (click)="resolveWork(ticket.id)">
-              Mark Resolved
-            </button>
-            <button *ngIf="ticket.status === 'OPEN'" class="action-btn close-btn">
-              Close
-            </button>
-          </div>
+        <div class="t-title-area">
+          <h3 class="t-desc">{{t.description}}</h3>
+          <p class="t-meta">Room {{t.roomNumber}} • {{t.tenantName || 'Admin'}}</p>
+        </div>
+        <div class="t-status">
+           <span class="status-badge" [class]="t.status.toLowerCase()">{{t.status.replace('_', ' ')}}</span>
         </div>
       </div>
-    </div>
-    
-    <div class="empty-state" *ngIf="filteredTickets.length === 0">
-      <mat-icon>build_circle</mat-icon>
-      <p>No maintenance tickets found.</p>
+
+      <div class="ticket-body">
+         <div class="info-row">
+            <span class="info-label"><mat-icon>event</mat-icon> Reported:</span>
+            <span class="info-val">{{t.reportedAt | date:'dd MMM yyyy'}}</span>
+         </div>
+         <div class="info-row">
+            <span class="info-label"><mat-icon>flag</mat-icon> Priority:</span>
+            <span class="info-val priority" [class]="t.priority.toLowerCase()">{{t.priority}}</span>
+         </div>
+         <div class="info-row" *ngIf="t.status === 'RESOLVED'">
+            <span class="info-label"><mat-icon>payments</mat-icon> Cost:</span>
+            <span class="info-val cost">₹{{t.cost | number}}</span>
+         </div>
+      </div>
+
+      <div class="ticket-actions">
+        <button *ngIf="t.status === 'OPEN'" class="btn-action start" (click)="startWork(t.id)">
+           <mat-icon>play_arrow</mat-icon> Start Work
+        </button>
+        <button *ngIf="t.status === 'IN_PROGRESS'" class="btn-action resolve" (click)="resolveWork(t.id)">
+           <mat-icon>done_all</mat-icon> Resolve
+        </button>
+        <button class="btn-action-icon" (click)="deleteTicket(t.id)" title="Delete"><mat-icon>delete_outline</mat-icon></button>
+      </div>
     </div>
   </div>
 
-  <!-- Modals -->
+  <!-- EMPTY STATE -->
+  <div class="empty-state animate-in" *ngIf="filteredTickets.length === 0">
+    <div class="empty-icon-ring"><mat-icon>build_circle</mat-icon></div>
+    <h3>No maintenance tickets</h3>
+    <p>All complaints are cleared! Create a new ticket if needed.</p>
+    <button class="add-btn" (click)="openForm('TICKET')" style="margin-top: 20px;">
+       <mat-icon>add</mat-icon> Raise New Ticket
+    </button>
+  </div>
+
+  <!-- MODALS -->
   <app-maintenance-form 
     *ngIf="showForm" 
     [type]="formType"
@@ -107,17 +112,16 @@
     (cancelled)="onCancelled()">
   </app-maintenance-form>
 
-  <!-- Input Dialog for Cost -->
   <app-input-dialog
     *ngIf="showCostDialog"
-    title="Resolve Ticket"
-    message="Enter repair cost (if any):"
+    title="Finalize Resolution"
+    message="Enter the total repair/material cost for this ticket:"
     placeholder="0"
     inputType="number"
     [inputValue]="0"
     [isCurrency]="true"
     icon="payments"
-    confirmText="Mark Resolved"
+    confirmText="Confirm & Resolve"
     (confirm)="executeResolve($event)"
     (cancel)="showCostDialog = false">
   </app-input-dialog>

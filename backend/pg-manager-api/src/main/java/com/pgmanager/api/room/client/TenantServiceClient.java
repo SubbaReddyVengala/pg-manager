@@ -1,39 +1,24 @@
 package com.pgmanager.api.room.client;
 
+import com.pgmanager.api.tenant.enums.TenantStatus;
+import com.pgmanager.api.tenant.repository.TenantRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestTemplate;
-import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpMethod;
-import java.util.List;
+
 @Component("roomTenantServiceClient")
 @RequiredArgsConstructor
 @Slf4j
 public class TenantServiceClient {
 
-    private final RestTemplate restTemplate;
-
-    @Value("${tenant-service.url}")
-    private String tenantServiceUrl;
+    private final TenantRepository tenantRepository;
 
     public boolean hasActiveTenantsByRoomNumber(String roomNumber) {
         try {
-            String url = tenantServiceUrl + "/tenants?status=ACTIVE";
-            List<?> tenants = restTemplate.exchange(
-                    url, HttpMethod.GET, null,
-                    new ParameterizedTypeReference<List<?>>() {}
-            ).getBody();
-            if (tenants == null) return false;
-            return tenants.stream().anyMatch(t -> {
-                if (t instanceof java.util.Map) {
-                    Object rn = ((java.util.Map<?,?>) t).get("roomNumber");
-                    return roomNumber.equals(String.valueOf(rn));
-                }
-                return false;
-            });
+            return tenantRepository.findAll().stream()
+                    .anyMatch(t -> t.getStatus() == TenantStatus.ACTIVE && roomNumber.equals(t.getRoomNumber()));
         } catch (Exception e) {
+            log.error("Error checking active tenants for room {}: {}", roomNumber, e.getMessage());
             return false;
         }
     }

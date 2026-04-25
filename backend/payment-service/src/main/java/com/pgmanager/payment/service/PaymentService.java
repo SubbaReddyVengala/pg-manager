@@ -2,11 +2,13 @@ package com.pgmanager.payment.service;
 
 import com.pgmanager.payment.dto.*;
 import com.pgmanager.payment.enums.PaymentStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import java.time.LocalDate;
 import java.util.List;
 
 public interface PaymentService {
-    List<PaymentResponse>  getPaymentsByMonth(LocalDate month, PaymentStatus status);
+    Page<PaymentResponse>  getPaymentsByMonth(LocalDate month, PaymentStatus status, Pageable pageable);
     PaymentResponse        recordPayment(PaymentRequest req);
     PaymentStatsResponse   getStats(LocalDate month);
     List<PaymentResponse>  getPaymentsByTenant(Long tenantId);

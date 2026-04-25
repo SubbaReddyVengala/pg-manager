@@ -1,3 +1,11 @@
+export interface PaginatedResponse<T> {
+  content: T[];
+  totalElements: number;
+  totalPages: number;
+  size: number;
+  number: number;
+}
+
 export type TenantStatus = 'ACTIVE' | 'PENDING' | 'INACTIVE';
 export type IdProofType = 'AADHAAR' | 'PAN' | 'PASSPORT' | 'VOTER_ID' | 'DRIVING_LICENSE';
 

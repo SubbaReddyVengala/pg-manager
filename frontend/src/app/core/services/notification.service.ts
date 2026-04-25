@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, BehaviorSubject, timer, switchMap, shareReplay, of, catchError } from 'rxjs';
+import { Observable, BehaviorSubject, timer, switchMap, of, catchError, tap, Subject } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 export interface NotificationAlert {
@@ -23,14 +23,21 @@ export class NotificationService {
   private unreadCountSubject = new BehaviorSubject<number>(0);
   unreadCount$ = this.unreadCountSubject.asObservable();
 
+  private refreshSubject = new Subject<void>();
+  refresh$ = this.refreshSubject.asObservable();
+
   constructor(private http: HttpClient) {
     // Poll for unread count every 30 seconds, handle errors gracefully
     timer(0, 30000).pipe(
       switchMap(() => this.getUnreadCount().pipe(
         catchError(() => of(0))
-      )),
-      shareReplay(1)
+      ))
     ).subscribe(count => this.unreadCountSubject.next(count));
+  }
+
+  triggerRefresh(): void {
+    this.getUnreadCount().subscribe(c => this.unreadCountSubject.next(c));
+    this.refreshSubject.next();
   }
 
   sendNotification(request: any): Observable<void> {
@@ -49,9 +56,9 @@ export class NotificationService {
 
   markAllRead(): Observable<void> {
     return this.http.post<void>(`${this.apiUrl}/mark-read`, {}).pipe(
-      switchMap(() => {
+      tap(() => {
         this.unreadCountSubject.next(0);
-        return of(undefined);
+        this.refreshSubject.next();
       }),
       catchError(() => of(undefined))
     ) as unknown as Observable<void>;

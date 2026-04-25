@@ -80,6 +80,10 @@ export class MaintenanceService {
     return this.http.patch<MaintenanceTicket>(`${this.apiUrl}/tickets/${id}/resolve`, {}, { params });
   }
 
+  deleteTicket(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/tickets/${id}`);
+  }
+
   recordExpense(expense: GeneralExpenseRequest): Observable<void> {
     return this.http.post<void>(`${this.apiUrl}/expenses`, expense);
   }

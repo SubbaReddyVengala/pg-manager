@@ -5,6 +5,8 @@ import com.pgmanager.api.payment.enums.PaymentStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -13,16 +15,28 @@ import java.util.Optional;
 public interface PaymentRepository extends JpaRepository<RentPayment, Long> {
 
     // All payments for a specific month (month picker)
-    List<RentPayment> findByRentMonth(LocalDate rentMonth);
+    Page<RentPayment> findByRentMonth(LocalDate rentMonth, Pageable pageable);
 
     // Filter by month + status (filter tabs)
-    List<RentPayment> findByRentMonthAndStatus(LocalDate rentMonth, PaymentStatus status);
+    Page<RentPayment> findByRentMonthAndStatus(LocalDate rentMonth, PaymentStatus status, Pageable pageable);
+
+    // Month + Status + Search
+    @Query("SELECT p FROM RentPayment p WHERE p.rentMonth = :month AND p.status = :status AND " +
+            "(LOWER(p.tenantName) LIKE LOWER(CONCAT('%', :q, '%')) OR LOWER(p.roomNumber) LIKE LOWER(CONCAT('%', :q, '%')))")
+    Page<RentPayment> searchByMonthAndStatus(@Param("month") LocalDate month, @Param("status") PaymentStatus status, @Param("q") String q, Pageable pageable);
+
+    // Month + Search
+    @Query("SELECT p FROM RentPayment p WHERE p.rentMonth = :month AND " +
+            "(LOWER(p.tenantName) LIKE LOWER(CONCAT('%', :q, '%')) OR LOWER(p.roomNumber) LIKE LOWER(CONCAT('%', :q, '%')))")
+    Page<RentPayment> searchByMonth(@Param("month") LocalDate month, @Param("q") String q, Pageable pageable);
 
     // Check if due already generated for this tenant+month (idempotency)
     Optional<RentPayment> findByTenantIdAndRentMonth(Long tenantId, LocalDate rentMonth);
 
     // All payments for a tenant (detail page payment history)
     List<RentPayment> findByTenantIdOrderByRentMonthDesc(Long tenantId);
+
+    List<RentPayment> findByStatus(PaymentStatus status);
 
     // Stats: total collected in a month
     @Query("SELECT COALESCE(SUM(p.amountPaid), 0) FROM RentPayment p " +
