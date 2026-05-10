@@ -20,7 +20,6 @@ public class NotificationServiceImpl implements NotificationService {
     private final NotificationRepository notificationRepository;
     private final SettingsService settingsService;
     private final EmailSender emailSender;
-    private final WhatsAppSender whatsappSender;
 
     @Override
     @Transactional
@@ -41,7 +40,7 @@ public class NotificationServiceImpl implements NotificationService {
 
         // Save to DB for dashboard alerts (always)
         Notification notification = Notification.builder()
-                .ownerId(ownerId) // May be null if triggered from system without context
+                .ownerId(ownerId)
                 .title(request.getSubject())
                 .message(request.getMessage())
                 .type(type)
@@ -52,34 +51,11 @@ public class NotificationServiceImpl implements NotificationService {
         
         notificationRepository.save(notification);
 
-        // Handle external notifications based on settings
-        if (ownerId != null) {
+        // Handle external email notifications based on settings
+        if (ownerId != null && request.getRecipient() != null) {
             PgSettings settings = settingsService.getSettingsByOwnerId(ownerId);
-            
-            boolean sendEmail = settings.isEmailNotifications();
-            boolean sendWhatsApp = settings.isWhatsappReminders();
-
-            if (sendEmail && request.getRecipient() != null) {
+            if (settings.isEmailNotifications()) {
                 emailSender.send(request.getRecipient(), request.getSubject(), request.getMessage());
-            }
-
-            if (sendWhatsApp && request.getRecipient() != null) {
-                String message = request.getMessage();
-                
-                // Append UPI deep link if amount and UPI ID are available
-                if (request.getAmount() != null && settings.getUpiId() != null && !settings.getUpiId().isEmpty()) {
-                    String upiLink = com.pgmanager.api.common.util.UpiUtils.generateDeepLink(
-                            settings.getUpiId(), 
-                            settings.getPgName(), 
-                            request.getAmount(), 
-                            "Rent Payment"
-                    );
-                    if (upiLink != null) {
-                        message += "\n\nPay via UPI: " + upiLink;
-                    }
-                }
-                
-                whatsappSender.send(request.getRecipient(), message);
             }
         }
     }
