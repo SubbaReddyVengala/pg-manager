@@ -7,7 +7,7 @@ import org.hibernate.annotations.Filter;
 import com.pgmanager.api.common.constant.TenantConstants;
 
 @Entity
-@Table(name = "pg_settings")
+@Table(name = "hostel_settings")
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
 @Filter(name = TenantConstants.TENANT_FILTER_NAME, condition = TenantConstants.TENANT_COLUMN_NAME + " = :" + TenantConstants.TENANT_PARAMETER_NAME)
 public class PgSettings {

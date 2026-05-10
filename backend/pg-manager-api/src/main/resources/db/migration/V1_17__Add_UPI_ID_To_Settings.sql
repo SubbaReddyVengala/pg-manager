@@ -1,2 +1,2 @@
--- Add upi_id column to pg_settings table
-ALTER TABLE pg_settings ADD COLUMN upi_id VARCHAR(255);
+-- Add upi_id column to hostel_settings table
+ALTER TABLE hostel_settings ADD COLUMN upi_id VARCHAR(255);

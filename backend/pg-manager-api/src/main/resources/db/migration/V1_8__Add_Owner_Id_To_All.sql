@@ -1,9 +1,9 @@
 -- V1_8__Add_Owner_Id_To_All.sql
 -- Adds owner_id column to all tables for multi-tenancy support in consolidated API
 
--- 1. pg_settings
-ALTER TABLE pg_settings ADD COLUMN IF NOT EXISTS owner_id BIGINT;
-UPDATE pg_settings SET owner_id = (SELECT id FROM users WHERE role = 'SUPER_ADMIN' LIMIT 1) WHERE owner_id IS NULL;
+-- 1. hostel_settings
+ALTER TABLE hostel_settings ADD COLUMN IF NOT EXISTS owner_id BIGINT;
+UPDATE hostel_settings SET owner_id = (SELECT id FROM users WHERE role = 'SUPER_ADMIN' LIMIT 1) WHERE owner_id IS NULL;
 
 -- 2. rooms
 ALTER TABLE rooms ADD COLUMN IF NOT EXISTS owner_id BIGINT;

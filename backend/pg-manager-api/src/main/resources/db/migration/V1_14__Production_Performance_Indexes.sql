@@ -8,7 +8,7 @@ CREATE INDEX IF NOT EXISTS idx_payments_owner ON rent_payments(owner_id);
 CREATE INDEX IF NOT EXISTS idx_tickets_owner ON maintenance_tickets(owner_id);
 CREATE INDEX IF NOT EXISTS idx_expenses_owner ON general_expenses(owner_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_owner ON notifications(owner_id);
-CREATE INDEX IF NOT EXISTS idx_pg_settings_owner ON pg_settings(owner_id);
+CREATE INDEX IF NOT EXISTS idx_hostel_settings_owner ON hostel_settings(owner_id);
 
 -- 2. Performance indexes for common search/filter patterns
 CREATE INDEX IF NOT EXISTS idx_tenants_email_owner ON tenants(owner_id, email);
