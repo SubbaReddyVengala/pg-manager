@@ -36,7 +36,7 @@ jwt:
 # CORS Configuration
 app:
   cors:
-    allowed-origins: ${ALLOWED_ORIGINS:https://pgmanager.app}
+    allowed-origins: ${ALLOWED_ORIGINS:https://pgmanager.app,https://pg-manager-d3ichm96o-subbareddyvengalas-projects.vercel.app}
 
 # Logging - reduce noise in production
 logging:

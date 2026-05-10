@@ -22,4 +22,4 @@ COPY --from=build /app/backend/pg-manager-api/target/pg-manager-api-0.0.1-SNAPSH
 
 EXPOSE 7860
 
-ENTRYPOINT ["java", "-Xmx256m", "-Xms128m", "-jar", "app.jar", "--server.port=7860"]
+ENTRYPOINT ["java", "-Xmx256m", "-Xms128m", "-Dspring.profiles.active=prod", "-jar", "app.jar", "--server.port=7860"]

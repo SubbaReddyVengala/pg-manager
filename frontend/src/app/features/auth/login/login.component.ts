@@ -9,6 +9,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { AuthService } from '../../../core/services/auth.service';
 import { LoginRequest } from '../../../shared/models/auth.models';
+import { environment } from '../../../../environments/environment';
 
 @Component({
   selector: 'app-login',
@@ -204,7 +205,7 @@ export class LoginComponent {
 
   loginWithGoogle(): void {
     // Spring Boot OAuth2 default entry point
-    window.location.href = 'http://localhost:8080/api/v1/oauth2/authorization/google';
+    window.location.href = `${environment.apiUrl}/oauth2/authorization/google`;
   }
 
   onSubmit(): void {
