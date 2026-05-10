@@ -1,10 +1,11 @@
 package com.pgmanager.api.maintenance.service;
 
+import com.pgmanager.common.util.SecurityUtils;
 import com.pgmanager.api.maintenance.client.PaymentServiceClient;
 import com.pgmanager.api.maintenance.dto.*;
 import com.pgmanager.api.maintenance.entity.GeneralExpense;
 import com.pgmanager.api.maintenance.entity.MaintenanceTicket;
-import com.pgmanager.api.maintenance.enums.MaintenanceStatus;
+import com.pgmanager.common.enums.MaintenanceStatus;
 import com.pgmanager.api.maintenance.mapper.MaintenanceMapper;
 import com.pgmanager.api.maintenance.repository.GeneralExpenseRepository;
 import com.pgmanager.api.maintenance.repository.MaintenanceTicketRepository;
@@ -30,31 +31,31 @@ public class MaintenanceServiceImpl implements MaintenanceService {
     @Override
     @Transactional
     public MaintenanceTicketResponse raiseTicket(MaintenanceTicketRequest req) {
-        // Validate room exists
+        Long ownerId = SecurityUtils.getCurrentOwnerId();
+        
         if (!roomServiceClient.roomExists(req.getRoomNumber())) {
-            throw new RuntimeException("Invalid Room: Room " + req.getRoomNumber() + " does not exist in the system.");
+            throw new RuntimeException("Invalid Room: Room " + req.getRoomNumber() + " does not exist.");
         }
 
         MaintenanceTicket ticket = MaintenanceTicket.builder()
+                .ownerId(ownerId)
                 .roomId(req.getRoomId())
                 .roomNumber(req.getRoomNumber())
                 .tenantId(req.getTenantId())
                 .tenantName(req.getTenantName())
                 .description(req.getDescription())
                 .priority(req.getPriority())
-                .cost(req.getCost())
+                .cost(req.getCost() != null ? req.getCost() : BigDecimal.ZERO)
                 .status(MaintenanceStatus.OPEN)
                 .reportedAt(LocalDateTime.now())
                 .build();
         
         MaintenanceTicket saved = ticketRepository.save(ticket);
         
-        // Send notification to Owner/Admin
         notificationClient.send(com.pgmanager.api.maintenance.client.NotificationServiceClient.NotificationRequest.builder()
             .subject("New Maintenance Request — Room " + req.getRoomNumber())
-            .message(String.format("%s reported: \"%s\". Priority: %s. Ticket #MNT-%03d created.", 
-                    req.getTenantName(), req.getDescription(), req.getPriority(), saved.getId()))
-            .type("BOTH")
+            .message(String.format("%s reported: \"%s\".", req.getTenantName(), req.getDescription()))
+            .type("MAINTENANCE")
             .tenantId(req.getTenantId())
             .build());
 
@@ -64,8 +65,8 @@ public class MaintenanceServiceImpl implements MaintenanceService {
     @Override
     @Transactional
     public MaintenanceTicketResponse startWork(Long ticketId) {
-        MaintenanceTicket ticket = ticketRepository.findById(ticketId)
-                .orElseThrow(() -> new RuntimeException("Ticket not found"));
+        MaintenanceTicket ticket = findById(ticketId);
+        validateOwner(ticket);
         ticket.setStatus(MaintenanceStatus.IN_PROGRESS);
         ticket.setStartedAt(LocalDateTime.now());
         return mapper.toResponse(ticketRepository.save(ticket));
@@ -74,8 +75,8 @@ public class MaintenanceServiceImpl implements MaintenanceService {
     @Override
     @Transactional
     public MaintenanceTicketResponse resolveTicket(Long ticketId, BigDecimal cost) {
-        MaintenanceTicket ticket = ticketRepository.findById(ticketId)
-                .orElseThrow(() -> new RuntimeException("Ticket not found"));
+        MaintenanceTicket ticket = findById(ticketId);
+        validateOwner(ticket);
         ticket.setStatus(MaintenanceStatus.RESOLVED);
         ticket.setResolvedAt(LocalDateTime.now());
         if (cost != null) ticket.setCost(cost);
@@ -84,23 +85,22 @@ public class MaintenanceServiceImpl implements MaintenanceService {
 
     @Override
     public List<MaintenanceTicketResponse> getTickets(MaintenanceStatus status) {
+        Long ownerId = SecurityUtils.getCurrentOwnerId();
         List<MaintenanceTicket> tickets = (status != null) 
-                ? ticketRepository.findByStatus(status) 
-                : ticketRepository.findAll();
+                ? ticketRepository.findByOwnerIdAndStatus(ownerId, status) 
+                : ticketRepository.findByOwnerId(ownerId);
         return tickets.stream().map(mapper::toResponse).collect(Collectors.toList());
     }
 
     @Override
     public MaintenanceStatsResponse getStats() {
-        long open = ticketRepository.countByStatus(MaintenanceStatus.OPEN);
-        long inProgress = ticketRepository.countByStatus(MaintenanceStatus.IN_PROGRESS);
-        long resolved = ticketRepository.countByStatus(MaintenanceStatus.RESOLVED);
-        Double avgDays = ticketRepository.getAverageResolutionTimeInDays();
+        Long ownerId = SecurityUtils.getCurrentOwnerId();
+        Double avgDays = ticketRepository.getAverageResolutionTimeInDaysByOwner(ownerId);
         
         return MaintenanceStatsResponse.builder()
-                .openCount(open)
-                .inProgressCount(inProgress)
-                .resolvedCount(resolved)
+                .openCount(ticketRepository.countByOwnerIdAndStatus(ownerId, MaintenanceStatus.OPEN))
+                .inProgressCount(ticketRepository.countByOwnerIdAndStatus(ownerId, MaintenanceStatus.IN_PROGRESS))
+                .resolvedCount(ticketRepository.countByOwnerIdAndStatus(ownerId, MaintenanceStatus.RESOLVED))
                 .avgResolutionTime(avgDays != null ? String.format("%.1fd", avgDays) : "0.0d")
                 .build();
     }
@@ -108,10 +108,9 @@ public class MaintenanceServiceImpl implements MaintenanceService {
     @Override
     @Transactional
     public void recordExpense(GeneralExpenseRequest req) {
-        if (req.getAmount() == null || req.getAmount().compareTo(java.math.BigDecimal.ZERO) <= 0) {
-            throw new RuntimeException("Expense amount must be greater than zero.");
-        }
+        Long ownerId = SecurityUtils.getCurrentOwnerId();
         GeneralExpense expense = GeneralExpense.builder()
+                .ownerId(ownerId)
                 .category(req.getCategory())
                 .description(req.getDescription())
                 .amount(req.getAmount())
@@ -124,49 +123,58 @@ public class MaintenanceServiceImpl implements MaintenanceService {
     @Override
     @Transactional
     public void deleteTicket(Long ticketId) {
-        if (!ticketRepository.existsById(ticketId)) {
-            throw new RuntimeException("Ticket not found");
-        }
-        ticketRepository.deleteById(ticketId);
+        MaintenanceTicket ticket = findById(ticketId);
+        validateOwner(ticket);
+        ticketRepository.delete(ticket);
     }
 
     @Override
     public List<GeneralExpense> getExpenses(LocalDate month) {
+        Long ownerId = SecurityUtils.getCurrentOwnerId();
         LocalDate start = month.withDayOfMonth(1);
         LocalDate end = month.withDayOfMonth(month.lengthOfMonth());
-        return expenseRepository.findByExpenseDateBetweenOrderByExpenseDateDesc(start, end);
+        return expenseRepository.findByOwnerIdAndExpenseDateBetweenOrderByExpenseDateDesc(ownerId, start, end);
     }
 
     @Override
     public NetProfitResponse getNetProfit(LocalDate month) {
+        Long ownerId = SecurityUtils.getCurrentOwnerId();
         LocalDate start = month.withDayOfMonth(1);
         LocalDate end = month.withDayOfMonth(month.lengthOfMonth());
 
-        // Get revenue from payment-service
         BigDecimal revenue = paymentServiceClient.getMonthlyRevenue(start);
-        if (revenue == null) revenue = BigDecimal.ZERO;
-
-        // Get costs from maintenance-service itself
-        BigDecimal generalExp = expenseRepository.sumExpensesBetween(start, end);
+        BigDecimal generalExp = expenseRepository.sumExpensesBetweenByOwner(ownerId, start, end);
         if (generalExp == null) generalExp = BigDecimal.ZERO;
 
-        // Sum ticket costs (assuming tickets resolved this month)
-        BigDecimal ticketCosts = ticketRepository.findAll().stream()
+        BigDecimal ticketCosts = ticketRepository.findByOwnerIdAndStatus(ownerId, MaintenanceStatus.RESOLVED).stream()
                 .filter(t -> t.getResolvedAt() != null && 
                              !t.getResolvedAt().toLocalDate().isBefore(start) && 
                              !t.getResolvedAt().toLocalDate().isAfter(end))
                 .map(t -> t.getCost() != null ? t.getCost() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        BigDecimal totalCost = generalExp.add(ticketCosts);
-        BigDecimal profit = revenue.subtract(totalCost);
+        BigDecimal profit = (revenue != null ? revenue : BigDecimal.ZERO).subtract(generalExp).subtract(ticketCosts);
 
         return NetProfitResponse.builder()
                 .month(start)
-                .totalRevenue(revenue)
+                .totalRevenue(revenue != null ? revenue : BigDecimal.ZERO)
                 .totalMaintenanceCost(ticketCosts)
                 .totalGeneralExpenses(generalExp)
                 .netProfit(profit)
                 .build();
     }
+
+    private MaintenanceTicket findById(Long id) {
+        return ticketRepository.findById(id).orElseThrow(() -> new RuntimeException("Ticket not found"));
+    }
+
+    private void validateOwner(MaintenanceTicket t) {
+        if (!t.getOwnerId().equals(SecurityUtils.getCurrentOwnerId())) {
+            throw new RuntimeException("Unauthorized access to this ticket");
+        }
+    }
 }
+
+
+
+

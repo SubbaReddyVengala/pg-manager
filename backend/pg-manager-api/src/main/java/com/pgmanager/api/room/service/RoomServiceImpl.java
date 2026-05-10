@@ -1,35 +1,52 @@
 package com.pgmanager.api.room.service;
+import com.pgmanager.common.util.SecurityUtils;
 import com.pgmanager.api.room.client.TenantServiceClient;
 import com.pgmanager.api.room.dto.*;
 import com.pgmanager.api.room.entity.Room;
-import com.pgmanager.api.room.enums.RoomStatus;
+import com.pgmanager.common.enums.RoomStatus;
 import com.pgmanager.api.room.repository.RoomRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.stream.Collectors;
+
 @Service @RequiredArgsConstructor @Slf4j
 public class RoomServiceImpl implements RoomService {
 
     private final RoomRepository roomRepository;
     private final TenantServiceClient tenantClient;
+    private final com.pgmanager.api.auth.repository.OwnerProfileRepository ownerProfileRepository;
+    private final com.pgmanager.api.auth.repository.UserActivityRepository userActivityRepository;
 
     @Override
+    @Transactional
+    @org.springframework.cache.annotation.CacheEvict(value = "dashboardStats", key = "T(com.pgmanager.common.util.SecurityUtils).getCurrentOwnerId()")
     public RoomResponse createRoom(RoomRequest req) {
-        log.info("Attempting to create room: {}", req.getRoomNumber());
+        Long ownerId = SecurityUtils.getCurrentOwnerId();
+        log.info("Attempting to create room: {} for owner: {}", req.getRoomNumber(), ownerId);
+
+        // Enforce limits
+        com.pgmanager.api.auth.entity.OwnerProfile profile = ownerProfileRepository.findByUserId(ownerId)
+                .orElse(com.pgmanager.api.auth.entity.OwnerProfile.builder().build());
+        long currentRooms = roomRepository.countByOwnerId(ownerId);
+        if (currentRooms >= profile.getMaxRooms()) {
+            throw new RuntimeException("Room limit reached (" + profile.getMaxRooms() + "). Contact admin to upgrade.");
+        }
+
         try {
-            if (roomRepository.existsByRoomNumber(req.getRoomNumber())) {
-                log.warn("Room number already exists: {}", req.getRoomNumber());
+            if (roomRepository.existsByOwnerIdAndRoomNumber(ownerId, req.getRoomNumber())) {
+                log.warn("Room number already exists: {} for owner: {}", req.getRoomNumber(), ownerId);
                 throw new RuntimeException("Room number already exists: " + req.getRoomNumber());
             }
             if (req.getStatus() == RoomStatus.OCCUPIED) {
-                log.warn("Cannot create new room with OCCUPIED status");
                 throw new RuntimeException("A new room cannot be created with OCCUPIED status.");
             }
             Room room = Room.builder()
+                    .ownerId(ownerId)
                     .roomNumber(req.getRoomNumber())
                     .floor(req.getFloor())
                     .roomType(req.getRoomType())
@@ -40,59 +57,67 @@ public class RoomServiceImpl implements RoomService {
                     .build();
             
             Room savedRoom = roomRepository.save(room);
+            
+            if (currentRooms == 0) {
+                userActivityRepository.save(com.pgmanager.api.auth.entity.UserActivity.builder()
+                        .userId(ownerId).ownerId(ownerId).actionType("ROOM_ADDED")
+                        .description("First room added: " + savedRoom.getRoomNumber())
+                        .timestamp(java.time.LocalDateTime.now()).build());
+            }
+
             log.info("Successfully saved room: {} with id: {}", savedRoom.getRoomNumber(), savedRoom.getId());
             return toResponse(savedRoom);
         } catch (Exception e) {
-            log.error("Error creating room {}: {}", req.getRoomNumber(), e.getMessage(), e);
+            log.error("Error creating room: {}", e.getMessage());
             throw e;
         }
     }
 
     @Override
     public Page<RoomResponse> getAllRooms(RoomStatus status, String search, Pageable pageable) {
+        Long ownerId = SecurityUtils.getCurrentOwnerId();
         Page<Room> rooms;
         boolean hasStatus = status != null;
         boolean hasSearch = search != null && !search.isBlank();
 
         if (hasStatus && hasSearch) {
-            rooms = roomRepository.findByStatusAndRoomNumberContainingIgnoreCase(status, search, pageable);
+            rooms = roomRepository.findByOwnerIdAndStatusAndRoomNumberContainingIgnoreCase(ownerId, status, search, pageable);
         } else if (hasStatus) {
-            rooms = roomRepository.findByStatus(status, pageable);
+            rooms = roomRepository.findByOwnerIdAndStatus(ownerId, status, pageable);
         } else if (hasSearch) {
-            rooms = roomRepository.findByRoomNumberContainingIgnoreCase(search, pageable);
+            rooms = roomRepository.findByOwnerIdAndRoomNumberContainingIgnoreCase(ownerId, search, pageable);
         } else {
-            rooms = roomRepository.findAll(pageable);
+            rooms = roomRepository.findAllByOwnerId(ownerId, pageable);
         }
         return rooms.map(this::toResponse);
     }
 
     @Override
     public RoomResponse getRoomById(Long id) {
-        return toResponse(findById(id));
+        Room room = findById(id);
+        validateOwner(room);
+        return toResponse(room);
     }
 
     @Override
+    @Transactional
+    @org.springframework.cache.annotation.CacheEvict(value = "dashboardStats", key = "T(com.pgmanager.common.util.SecurityUtils).getCurrentOwnerId()")
     public RoomResponse updateRoom(Long id, RoomRequest req) {
         Room room = findById(id);
-        // If room number changed, check no duplicate
+        validateOwner(room);
+        Long ownerId = room.getOwnerId();
+
         if (!room.getRoomNumber().equals(req.getRoomNumber()) &&
-                roomRepository.existsByRoomNumber(req.getRoomNumber())) {
+                roomRepository.existsByOwnerIdAndRoomNumber(ownerId, req.getRoomNumber())) {
             throw new RuntimeException("Room number already exists: " + req.getRoomNumber());
         }
 
-        // Validation: Cannot manually set to OCCUPIED if not already occupied
         if (req.getStatus() == RoomStatus.OCCUPIED && room.getStatus() != RoomStatus.OCCUPIED) {
-            throw new RuntimeException("Room status cannot be manually set to OCCUPIED. It is automatically set when tenants are assigned.");
+            throw new RuntimeException("Room status cannot be manually set to OCCUPIED.");
         }
 
-        // Validation: Cannot change status from OCCUPIED if tenants are still present
         if (room.getStatus() == RoomStatus.OCCUPIED && req.getStatus() != RoomStatus.OCCUPIED && room.getOccupancy() > 0) {
             throw new RuntimeException("Cannot change status from OCCUPIED while tenants are still in the room.");
-        }
-        
-        // Validation: Cannot change status to MAINTENANCE if tenants are still present
-        if (req.getStatus() == RoomStatus.MAINTENANCE && room.getOccupancy() > 0) {
-            throw new RuntimeException("Cannot put room under MAINTENANCE while tenants are still present.");
         }
 
         room.setRoomNumber(req.getRoomNumber());
@@ -106,16 +131,13 @@ public class RoomServiceImpl implements RoomService {
     }
 
     @Override
+    @Transactional
+    @org.springframework.cache.annotation.CacheEvict(value = "dashboardStats", key = "T(com.pgmanager.common.util.SecurityUtils).getCurrentOwnerId()")
     public void deleteRoom(Long id) {
         Room room = findById(id);
-        if (room.getStatus() == RoomStatus.OCCUPIED) {
-            throw new RuntimeException("Cannot delete an OCCUPIED room.");
-        }
-        if (room.getOccupancy() > 0) {
-            throw new RuntimeException("Cannot delete room — tenants still assigned.");
-        }
-        if (tenantClient.hasActiveTenantsByRoomNumber(room.getRoomNumber())) {
-            throw new RuntimeException("Cannot delete Room " + room.getRoomNumber() + " — active tenants are assigned to it.");
+        validateOwner(room);
+        if (room.getStatus() == RoomStatus.OCCUPIED || room.getOccupancy() > 0) {
+            throw new RuntimeException("Cannot delete room with active occupancy.");
         }
         roomRepository.delete(room);
     }
@@ -123,24 +145,27 @@ public class RoomServiceImpl implements RoomService {
     @Override
     public List<RoomResponse> getAvailableRooms() {
         return roomRepository
-                .findByStatusOrderByRoomNumberAsc(RoomStatus.AVAILABLE)
+                .findByOwnerIdAndStatusOrderByRoomNumberAsc(SecurityUtils.getCurrentOwnerId(), RoomStatus.AVAILABLE)
                 .stream().map(this::toResponse).collect(Collectors.toList());
     }
 
     @Override
+    @Transactional
     public RoomResponse updateStatus(Long id, RoomStatus status) {
         Room room = findById(id);
+        validateOwner(room);
         room.setStatus(status);
         return toResponse(roomRepository.save(room));
     }
 
     @Override
     public RoomStatsResponse getStats() {
-        long total       = roomRepository.count();
-        long occupied    = roomRepository.countByStatus(RoomStatus.OCCUPIED);
-        long available   = roomRepository.countByStatus(RoomStatus.AVAILABLE);
-        long maintenance = roomRepository.countByStatus(RoomStatus.MAINTENANCE);
-        long floors      = roomRepository.countDistinctFloor();
+        Long ownerId = SecurityUtils.getCurrentOwnerId();
+        long total       = roomRepository.countByOwnerId(ownerId);
+        long occupied    = roomRepository.countByOwnerIdAndStatus(ownerId, RoomStatus.OCCUPIED);
+        long available   = roomRepository.countByOwnerIdAndStatus(ownerId, RoomStatus.AVAILABLE);
+        long maintenance = roomRepository.countByOwnerIdAndStatus(ownerId, RoomStatus.MAINTENANCE);
+        long floors      = roomRepository.countDistinctFloorByOwnerId(ownerId);
         
         double rate      = total > 0 ? Math.round((occupied * 100.0 / total) * 10.0) / 10.0 : 0.0;
         
@@ -154,10 +179,55 @@ public class RoomServiceImpl implements RoomService {
                 .build();
     }
 
+    @Override
+    @Transactional
+    public RoomResponse incrementOccupancy(Long id) {
+        Room room = findById(id);
+        validateOwner(room);
+        int newOccupancy = room.getOccupancy() + 1;
+        if (newOccupancy > room.getMaxCapacity()) {
+            throw new RuntimeException("Room " + room.getRoomNumber() + " is already full.");
+        }
+        room.setOccupancy(newOccupancy);
+        if (newOccupancy >= room.getMaxCapacity()) {
+            room.setStatus(RoomStatus.OCCUPIED);
+        }
+        return toResponse(roomRepository.save(room));
+    }
+
+    @Override
+    @Transactional
+    public RoomResponse decrementOccupancy(Long id) {
+        Room room = findById(id);
+        validateOwner(room);
+        int newOccupancy = Math.max(0, room.getOccupancy() - 1);
+        room.setOccupancy(newOccupancy);
+        if (newOccupancy < room.getMaxCapacity() && room.getStatus() == RoomStatus.OCCUPIED) {
+            room.setStatus(RoomStatus.AVAILABLE);
+        }
+        return toResponse(roomRepository.save(room));
+    }
+
+    @Override
+    public boolean existsByRoomNumber(String roomNumber) {
+        return roomRepository.existsByOwnerIdAndRoomNumber(SecurityUtils.getCurrentOwnerId(), roomNumber);
+    }
+
+    @Override
+    public long countAllRoomsIgnoreOwner() {
+        return roomRepository.count();
+    }
+
     // ── private helpers ────────────────────────────
     private Room findById(Long id) {
         return roomRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Room not found with id: " + id));
+                .orElseThrow(() -> new RuntimeException("Room not found: " + id));
+    }
+
+    private void validateOwner(Room room) {
+        if (!room.getOwnerId().equals(SecurityUtils.getCurrentOwnerId())) {
+            throw new RuntimeException("Unauthorized access to this room");
+        }
     }
 
     private RoomResponse toResponse(Room r) {
@@ -175,40 +245,8 @@ public class RoomServiceImpl implements RoomService {
                 .updatedAt(r.getUpdatedAt())
                 .build();
     }
-    @Override
-    public RoomResponse incrementOccupancy(Long id) {
-        Room room = findById(id);
-        int newOccupancy = room.getOccupancy() + 1;
-        if (newOccupancy > room.getMaxCapacity()) {
-            throw new RuntimeException("Room " + room.getRoomNumber() + " is already full.");
-        }
-        room.setOccupancy(newOccupancy);
-        // Only mark OCCUPIED when full
-        if (newOccupancy >= room.getMaxCapacity()) {
-            room.setStatus(RoomStatus.OCCUPIED);
-        } else {
-            room.setStatus(RoomStatus.AVAILABLE); // partially filled = still available
-        }
-        return toResponse(roomRepository.save(room));
-    }
-
-    @Override
-    public RoomResponse decrementOccupancy(Long id) {
-        Room room = findById(id);
-        int newOccupancy = Math.max(0, room.getOccupancy() - 1);
-        room.setOccupancy(newOccupancy);
-        if (newOccupancy == 0) {
-            room.setStatus(RoomStatus.AVAILABLE);  // completely empty
-        } else if (newOccupancy < room.getMaxCapacity()) {
-            room.setStatus(RoomStatus.AVAILABLE);  // partially filled = still available
-        } else {
-            room.setStatus(RoomStatus.OCCUPIED);   // still full
-        }
-        return toResponse(roomRepository.save(room));
-    }
-
-    @Override
-    public boolean existsByRoomNumber(String roomNumber) {
-        return roomRepository.existsByRoomNumber(roomNumber);
-    }
 }
+
+
+
+

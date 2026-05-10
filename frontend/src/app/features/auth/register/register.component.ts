@@ -35,7 +35,12 @@ import { RegisterRequest } from '../../../shared/models/auth.models';
           <span>{{ errorMessage }}</span>
         </div>
 
-        <form [formGroup]="form" (ngSubmit)="onSubmit()">
+        <div class="success-alert" *ngIf="successMessage">
+          <mat-icon>check_circle_outline</mat-icon>
+          <span>{{ successMessage }}</span>
+        </div>
+
+        <form [formGroup]="form" (ngSubmit)="onSubmit()" *ngIf="!successMessage">
 
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>Full Name</mat-label>
@@ -60,6 +65,20 @@ import { RegisterRequest } from '../../../shared/models/auth.models';
             </mat-error>
             <mat-error *ngIf="form.get('email')?.hasError('email')">
               Please enter a valid email
+            </mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Mobile Number</mat-label>
+            <mat-icon matPrefix>phone</mat-icon>
+            <input matInput
+                   formControlName="phone"
+                   placeholder="10-digit mobile number">
+            <mat-error *ngIf="form.get('phone')?.hasError('required')">
+              Mobile number is required
+            </mat-error>
+            <mat-error *ngIf="form.get('phone')?.hasError('pattern')">
+              Please enter a valid 10-digit number
             </mat-error>
           </mat-form-field>
 
@@ -138,6 +157,16 @@ import { RegisterRequest } from '../../../shared/models/auth.models';
       font-size: 14px;
       margin-bottom: 20px;
     }
+    .success-alert {
+      display: flex; align-items: center; gap: 8px;
+      background: #E8F5E9;
+      border: 1px solid #4CAF50;
+      border-radius: 8px;
+      padding: 12px 16px;
+      color: #2E7D32;
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
     .full-width { width: 100%; }
     .submit-btn {
       width: 100%; height: 48px;
@@ -162,6 +191,7 @@ export class RegisterComponent {
   form: FormGroup;
   loading      = false;
   errorMessage = '';
+  successMessage = '';
   showPassword = false;
 
   constructor(
@@ -173,6 +203,7 @@ export class RegisterComponent {
     this.form = this.fb.group({
       fullName: ['', [Validators.required]],
       email:    ['', [Validators.required, Validators.email]],
+      phone:    ['', [Validators.required, Validators.pattern('^[0-9]{10}$')]],
       password: ['', [Validators.required, Validators.minLength(8)]],
     });
   }
@@ -183,10 +214,15 @@ export class RegisterComponent {
 
     this.loading      = true;
     this.errorMessage = '';
+    this.successMessage = '';
 
     const request: RegisterRequest = this.form.value;
     this.auth.register(request).subscribe({
-      next: () => this.router.navigate(['/dashboard']),
+      next: () => {
+        this.loading = false;
+        this.successMessage = 'Registration successful! Your account is pending administrator approval. You will receive an email once activated.';
+        this.cdr.detectChanges();
+      },
       error: (err) => {
         this.errorMessage = err.error?.message ?? 'Registration failed. Please try again.';
         this.loading = false;

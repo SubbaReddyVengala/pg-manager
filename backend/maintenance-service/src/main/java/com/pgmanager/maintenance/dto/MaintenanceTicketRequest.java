@@ -1,7 +1,7 @@
 package com.pgmanager.maintenance.dto;
 
-import com.pgmanager.maintenance.enums.MaintenancePriority;
-import com.pgmanager.maintenance.enums.MaintenanceStatus;
+import com.pgmanager.common.enums.MaintenancePriority;
+import com.pgmanager.common.enums.MaintenanceStatus;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 import java.math.BigDecimal;

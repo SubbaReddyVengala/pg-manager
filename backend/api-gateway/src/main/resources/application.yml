@@ -11,71 +11,74 @@ spring:
         - id: auth-public
           uri: ${AUTH_SERVICE_URL:http://127.0.0.1:8081}
           predicates:
-            - Path=/api/auth/login,/api/auth/register,/api/auth/refresh
+            - Path=/api/v1/auth/login,/api/v1/auth/register,/api/v1/auth/refresh
           filters:
-            - StripPrefix=1
+            - StripPrefix=2
 
         # SECURED auth routes - JWT required
         - id: auth-secured
           uri: ${AUTH_SERVICE_URL:http://127.0.0.1:8081}
           predicates:
-            - Path=/api/auth/**
+            - Path=/api/v1/auth/**
           filters:
-            - StripPrefix=1
+            - StripPrefix=2
             - JwtValidation
 
-        # Room, Tenant, Payment, etc.
+        # Settings route
         - id: settings-route
           uri: ${AUTH_SERVICE_URL:http://127.0.0.1:8081}
           predicates:
-            - Path=/api/settings/**
+            - Path=/api/v1/settings/**
           filters:
-            - StripPrefix=1
+            - StripPrefix=2
             - JwtValidation
 
         - id: room-service
           uri: ${ROOM_SERVICE_URL:http://127.0.0.1:8082}
           predicates:
-            - Path=/api/rooms/**
+            - Path=/api/v1/rooms/**
           filters:
-            - StripPrefix=1
+            - StripPrefix=2
             - JwtValidation
             
         - id: tenant-service
           uri: ${TENANT_SERVICE_URL:http://127.0.0.1:8083}
           predicates:
-            - Path=/api/tenants/**
+            - Path=/api/v1/tenants/**
           filters:
-            - StripPrefix=1
+            - StripPrefix=2
             - JwtValidation
 
         - id: payment-service
           uri: ${PAYMENT_SERVICE_URL:http://127.0.0.1:8084}
           predicates:
-            - Path=/api/payments/**
+            - Path=/api/v1/payments/**
           filters:
-            - StripPrefix=1
+            - StripPrefix=2
+            - JwtValidation
             
         - id: report-service
           uri: ${REPORT_SERVICE_URL:http://127.0.0.1:8088}
           predicates:
-            - Path=/api/reports/**
+            - Path=/api/v1/reports/**
           filters:
-            - StripPrefix=1
+            - StripPrefix=2
+            - JwtValidation
 
         - id: notification-service
           uri: ${NOTIFICATION_SERVICE_URL:http://127.0.0.1:8087}
           predicates:
-            - Path=/api/notifications/**
+            - Path=/api/v1/notifications/**
           filters:
-            - StripPrefix=1
+            - StripPrefix=2
+            - JwtValidation
 
         - id: maintenance-service
           uri: ${MAINTENANCE_SERVICE_URL:http://127.0.0.1:8089}
           predicates:
-            - Path=/api/maintenance/**
+            - Path=/api/v1/maintenance/**
           filters:
-            - StripPrefix=1
+            - StripPrefix=2
             - JwtValidation
 
 
@@ -87,5 +90,11 @@ management:
   endpoints:
     web:
       exposure:
-        include: health
+        include: health,info
+
+sentry:
+  dsn: ${SENTRY_DSN:https://placeholder@sentry.io/placeholder}
+  environment: ${SENTRY_ENVIRONMENT:production}
+  traces-sample-rate: 0.1
+  send-default-pii: false
 

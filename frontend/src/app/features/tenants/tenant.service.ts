@@ -66,8 +66,7 @@ export class TenantService {
   }
 
   getAvailableRooms(): Observable<RoomResponse[]> {
-    const params = new HttpParams().set('status', 'AVAILABLE');
-    return this.http.get<RoomResponse[]>(this.roomBase, { params });
+    return this.http.get<RoomResponse[]>(`${this.roomBase}/available`);
   }
 
   deleteTenant(id: number): Observable<void> {

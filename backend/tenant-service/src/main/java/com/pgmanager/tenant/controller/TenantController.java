@@ -1,6 +1,6 @@
 package com.pgmanager.tenant.controller;
 import com.pgmanager.tenant.dto.*;
-import com.pgmanager.tenant.enums.TenantStatus;
+import com.pgmanager.common.enums.TenantStatus;
 import com.pgmanager.tenant.service.TenantService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

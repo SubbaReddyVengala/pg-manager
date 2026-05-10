@@ -25,7 +25,7 @@ interface NavItem {
   standalone: true,
   imports: [
     CommonModule, RouterOutlet, RouterLink, RouterLinkActive,
-    MatIconModule, MatButtonModule, MatDividerModule,
+    MatIconModule, MatButtonModule, MatDividerModule
   ],
   template: `
     <div class="layout">
@@ -44,14 +44,14 @@ interface NavItem {
           <div class="brand-logo">{{ brandInitial }}</div>
           <div class="brand-info">
             <span class="brand-name">{{ pgName }}</span>
-            <span class="brand-role">Owner Account</span>
+            <span class="brand-role">{{ userRole === 'SUPER_ADMIN' ? 'Admin Panel' : 'Owner Account' }}</span>
           </div>
         </div>
 
         <!-- Scrollable nav area -->
         <div class="nav-area">
 
-          <a *ngFor="let item of mainNav"
+          <a *ngFor="let item of filteredMainNav"
              [routerLink]="item.route"
              routerLinkActive="nav-active"
              [routerLinkActiveOptions]="{exact: item.exact ?? false}"
@@ -66,7 +66,7 @@ interface NavItem {
 
           <div class="nav-divider"></div>
 
-          <a *ngFor="let item of moreNav"
+          <a *ngFor="let item of filteredMoreNav"
              [routerLink]="item.route"
              routerLinkActive="nav-active"
              [routerLinkActiveOptions]="{exact: false}"
@@ -129,6 +129,7 @@ interface NavItem {
         </div>
 
       </div>
+
     </div>
   `,
   styles: [`
@@ -296,6 +297,31 @@ export class DashboardComponent implements OnInit {
     { label:'Settings',      icon:'settings',      route:'/dashboard/settings',   color:'#6B7280' },
   ];
 
+  get filteredMainNav(): NavItem[] {
+    if (this.auth.isSuperAdmin()) {
+      return [
+        { label:'Admin Panel', icon:'admin_panel_settings', route:'/dashboard/admin', color:'#3B82F6', exact:false }
+      ]; 
+    }
+    if (this.auth.isStaff()) {
+      return this.mainNav.filter(item => item.label !== 'Reports');
+    }
+    return this.mainNav;
+  }
+
+  get filteredMoreNav(): NavItem[] {
+    if (this.auth.isSuperAdmin()) {
+      return [];
+    }
+    if (this.auth.isStaff()) {
+      return this.moreNav.filter(item => 
+        item.label !== 'Expenses' && 
+        item.label !== 'Settings'
+      );
+    }
+    return this.moreNav;
+  }
+
   constructor(
     private auth:        AuthService,
     private router:      Router,
@@ -332,7 +358,6 @@ export class DashboardComponent implements OnInit {
     this.settingsService.pgName$
       .pipe(takeUntil(this.destroy$))
       .subscribe(name => {
-        console.log('Dashboard received new PG name:', name);
         this.pgName = name;
         this.brandInitial = name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
         this.cdr.detectChanges();

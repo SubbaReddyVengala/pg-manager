@@ -1,7 +1,7 @@
 package com.pgmanager.payment.entity;
 
-import com.pgmanager.payment.enums.PaymentMode;
-import com.pgmanager.payment.enums.PaymentStatus;
+import com.pgmanager.common.enums.PaymentMode;
+import com.pgmanager.common.enums.PaymentStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
@@ -15,6 +15,9 @@ public class RentPayment {
 
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(nullable = false)
+    private Long userId;
 
     @Column(nullable = false)
     private Long tenantId;

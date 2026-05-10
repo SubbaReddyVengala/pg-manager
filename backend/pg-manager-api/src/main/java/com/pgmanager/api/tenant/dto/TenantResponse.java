@@ -1,6 +1,6 @@
 package com.pgmanager.api.tenant.dto;
-import com.pgmanager.api.tenant.enums.IdProofType;
-import com.pgmanager.api.tenant.enums.TenantStatus;
+import com.pgmanager.common.enums.IdProofType;
+import com.pgmanager.common.enums.TenantStatus;
 import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -26,3 +26,7 @@ public class TenantResponse {
     private boolean       isOverdue;       // true if rent past due
     private long          daysOverdue;     // e.g. 5 for "5 days overdue"
 }
+
+
+
+

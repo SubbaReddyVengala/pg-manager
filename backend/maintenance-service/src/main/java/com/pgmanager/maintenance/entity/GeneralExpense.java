@@ -12,6 +12,8 @@ public class GeneralExpense {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     @Column(nullable = false)
+    private Long userId;
+    @Column(nullable = false)
     private String category;
     private String description;
     @Column(nullable = false)

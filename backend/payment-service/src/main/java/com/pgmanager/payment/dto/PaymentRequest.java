@@ -1,6 +1,6 @@
 package com.pgmanager.payment.dto;
 
-import com.pgmanager.payment.enums.PaymentMode;
+import com.pgmanager.common.enums.PaymentMode;
 import jakarta.validation.constraints.*;
 import lombok.Data;
 import java.math.BigDecimal;

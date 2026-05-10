@@ -1,7 +1,7 @@
 package com.pgmanager.maintenance.entity;
 
-import com.pgmanager.maintenance.enums.MaintenancePriority;
-import com.pgmanager.maintenance.enums.MaintenanceStatus;
+import com.pgmanager.common.enums.MaintenancePriority;
+import com.pgmanager.common.enums.MaintenanceStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
@@ -13,6 +13,8 @@ import java.time.LocalDateTime;
 public class MaintenanceTicket {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    @Column(nullable = false)
+    private Long userId;
     private Long roomId;
     private String roomNumber;
     private Long tenantId;

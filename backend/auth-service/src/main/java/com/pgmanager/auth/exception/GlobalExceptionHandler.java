@@ -1,4 +1,5 @@
 package com.pgmanager.auth.exception;
+import com.pgmanager.common.dto.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;

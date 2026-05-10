@@ -1,6 +1,6 @@
 package com.pgmanager.api.room.dto;
-import com.pgmanager.api.room.enums.RoomStatus;
-import com.pgmanager.api.room.enums.RoomType;
+import com.pgmanager.common.enums.RoomStatus;
+import com.pgmanager.common.enums.RoomType;
 import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -19,3 +19,7 @@ public class RoomResponse {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
+
+
+
+

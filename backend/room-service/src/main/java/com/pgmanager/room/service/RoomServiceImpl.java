@@ -1,8 +1,9 @@
 package com.pgmanager.room.service;
+import com.pgmanager.common.enums.RoomStatus;
 import com.pgmanager.room.client.TenantServiceClient;
+import com.pgmanager.room.context.UserContext;
 import com.pgmanager.room.dto.*;
 import com.pgmanager.room.entity.Room;
-import com.pgmanager.room.enums.RoomStatus;
 import com.pgmanager.room.repository.RoomRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -13,15 +14,20 @@ public class RoomServiceImpl implements RoomService {
 
     private final RoomRepository roomRepository;
     private final TenantServiceClient tenantClient;
+    private final com.pgmanager.room.client.AuthServiceClient authClient;
+    
     @Override
     public RoomResponse createRoom(RoomRequest req) {
-        if (roomRepository.existsByRoomNumber(req.getRoomNumber())) {
+        Long userId = UserContext.getUserId();
+        String userEmail = UserContext.getUserEmail();
+        if (roomRepository.existsByUserIdAndRoomNumber(userId, req.getRoomNumber())) {
             throw new RuntimeException("Room number already exists: " + req.getRoomNumber());
         }
         if (req.getStatus() == RoomStatus.OCCUPIED) {
             throw new RuntimeException("A new room cannot be created with OCCUPIED status.");
         }
         Room room = Room.builder()
+                .userId(userId)
                 .roomNumber(req.getRoomNumber())
                 .floor(req.getFloor())
                 .roomType(req.getRoomType())
@@ -30,23 +36,28 @@ public class RoomServiceImpl implements RoomService {
                 .amenities(req.getAmenities())
                 .status(req.getStatus())
                 .build();
-        return toResponse(roomRepository.save(room));
+        RoomResponse response = toResponse(roomRepository.save(room));
+        
+        authClient.logEvent(userId, userEmail, "ROOM_ADDED", "Room " + room.getRoomNumber() + " added");
+        
+        return response;
     }
 
     @Override
     public List<RoomResponse> getAllRooms(RoomStatus status, String search) {
+        Long userId = UserContext.getUserId();
         List<Room> rooms;
         boolean hasStatus = status != null;
         boolean hasSearch = search != null && !search.isBlank();
 
         if (hasStatus && hasSearch) {
-            rooms = roomRepository.findByStatusAndRoomNumberContainingIgnoreCase(status, search);
+            rooms = roomRepository.findByUserIdAndStatusAndRoomNumberContainingIgnoreCase(userId, status, search);
         } else if (hasStatus) {
-            rooms = roomRepository.findByStatus(status);
+            rooms = roomRepository.findByUserIdAndStatus(userId, status);
         } else if (hasSearch) {
-            rooms = roomRepository.findByRoomNumberContainingIgnoreCase(search);
+            rooms = roomRepository.findByUserIdAndRoomNumberContainingIgnoreCase(userId, search);
         } else {
-            rooms = roomRepository.findAll();
+            rooms = roomRepository.findByUserId(userId);
         }
         return rooms.stream().map(this::toResponse).collect(Collectors.toList());
     }
@@ -58,10 +69,11 @@ public class RoomServiceImpl implements RoomService {
 
     @Override
     public RoomResponse updateRoom(Long id, RoomRequest req) {
+        Long userId = UserContext.getUserId();
         Room room = findById(id);
-        // If room number changed, check no duplicate
+        // If room number changed, check no duplicate for this user
         if (!room.getRoomNumber().equals(req.getRoomNumber()) &&
-                roomRepository.existsByRoomNumber(req.getRoomNumber())) {
+                roomRepository.existsByUserIdAndRoomNumber(userId, req.getRoomNumber())) {
             throw new RuntimeException("Room number already exists: " + req.getRoomNumber());
         }
 
@@ -107,8 +119,9 @@ public class RoomServiceImpl implements RoomService {
 
     @Override
     public List<RoomResponse> getAvailableRooms() {
+        Long userId = UserContext.getUserId();
         return roomRepository
-                .findByStatusOrderByRoomNumberAsc(RoomStatus.AVAILABLE)
+                .findByUserIdAndStatusOrderByRoomNumberAsc(userId, RoomStatus.AVAILABLE)
                 .stream().map(this::toResponse).collect(Collectors.toList());
     }
 
@@ -121,11 +134,12 @@ public class RoomServiceImpl implements RoomService {
 
     @Override
     public RoomStatsResponse getStats() {
-        long total       = roomRepository.count();
-        long occupied    = roomRepository.countByStatus(RoomStatus.OCCUPIED);
-        long available   = roomRepository.countByStatus(RoomStatus.AVAILABLE);
-        long maintenance = roomRepository.countByStatus(RoomStatus.MAINTENANCE);
-        long floors      = roomRepository.countDistinctFloor();
+        Long userId = UserContext.getUserId();
+        long total       = roomRepository.findByUserId(userId).size();
+        long occupied    = roomRepository.countByUserIdAndStatus(userId, RoomStatus.OCCUPIED);
+        long available   = roomRepository.countByUserIdAndStatus(userId, RoomStatus.AVAILABLE);
+        long maintenance = roomRepository.countByUserIdAndStatus(userId, RoomStatus.MAINTENANCE);
+        long floors      = roomRepository.countDistinctFloorByUserId(userId);
         
         double rate      = total > 0 ? Math.round((occupied * 100.0 / total) * 10.0) / 10.0 : 0.0;
         
@@ -141,8 +155,9 @@ public class RoomServiceImpl implements RoomService {
 
     // ── private helpers ────────────────────────────
     private Room findById(Long id) {
-        return roomRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Room not found with id: " + id));
+        Long userId = UserContext.getUserId();
+        return roomRepository.findByIdAndUserId(id, userId)
+                .orElseThrow(() -> new RuntimeException("Room not found or access denied: " + id));
     }
 
     private RoomResponse toResponse(Room r) {
@@ -162,6 +177,9 @@ public class RoomServiceImpl implements RoomService {
     }
     @Override
     public RoomResponse incrementOccupancy(Long id) {
+        // Inter-service calls might not have UserContext if called directly, 
+        // but GatewayHeaderFilter should set it if called via Gateway.
+        // If called service-to-service, X-User-Id should still be passed.
         Room room = findById(id);
         int newOccupancy = room.getOccupancy() + 1;
         if (newOccupancy > room.getMaxCapacity()) {
@@ -194,6 +212,7 @@ public class RoomServiceImpl implements RoomService {
 
     @Override
     public boolean existsByRoomNumber(String roomNumber) {
-        return roomRepository.existsByRoomNumber(roomNumber);
+        Long userId = UserContext.getUserId();
+        return roomRepository.existsByUserIdAndRoomNumber(userId, roomNumber);
     }
 }

@@ -31,3 +31,15 @@ notification:
 
 # Scheduler timezone — IST
 spring.task.scheduling.pool.size: 2
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+sentry:
+  dsn: ${SENTRY_DSN:https://placeholder@sentry.io/placeholder}
+  environment: ${SENTRY_ENVIRONMENT:production}
+  traces-sample-rate: 0.1
+  send-default-pii: false

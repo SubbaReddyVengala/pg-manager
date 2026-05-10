@@ -1,7 +1,7 @@
 package com.pgmanager.api.payment.service;
 
 import com.pgmanager.api.payment.dto.*;
-import com.pgmanager.api.payment.enums.PaymentStatus;
+import com.pgmanager.common.enums.PaymentStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -17,3 +17,7 @@ public interface PaymentService {
     void                   generateDueForTenant(Long tenantId, LocalDate month);
     byte[]                 generateReceipt(Long paymentId); // returns PDF bytes
 }
+
+
+
+

@@ -11,9 +11,10 @@ import java.util.List;
 
 @Repository
 public interface GeneralExpenseRepository extends JpaRepository<GeneralExpense, Long> {
-    
-    List<GeneralExpense> findByExpenseDateBetweenOrderByExpenseDateDesc(LocalDate start, LocalDate end);
+    List<GeneralExpense> findByUserIdAndExpenseDateBetween(Long userId, LocalDate start, LocalDate end);
 
-    @Query("SELECT SUM(e.amount) FROM GeneralExpense e WHERE e.expenseDate BETWEEN :start AND :end")
-    BigDecimal sumExpensesBetween(LocalDate start, LocalDate end);
+    @Query("SELECT SUM(e.amount) FROM GeneralExpense e WHERE e.userId = :userId AND e.expenseDate BETWEEN :start AND :end")
+    BigDecimal sumAmountByUserIdAndExpenseDateBetween(Long userId, LocalDate start, LocalDate end);
+
+    List<GeneralExpense> findByUserId(Long userId);
 }

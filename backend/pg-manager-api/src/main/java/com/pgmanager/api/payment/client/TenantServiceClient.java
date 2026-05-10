@@ -1,7 +1,7 @@
 package com.pgmanager.api.payment.client;
 
 import com.pgmanager.api.tenant.entity.Tenant;
-import com.pgmanager.api.tenant.enums.TenantStatus;
+import com.pgmanager.common.enums.TenantStatus;
 import com.pgmanager.api.tenant.repository.TenantRepository;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -18,7 +18,15 @@ public class TenantServiceClient {
 
     private final TenantRepository tenantRepository;
 
-    public List<TenantInfo> getActiveTenants() {
+    public List<TenantInfo> getActiveTenants(Long ownerId) {
+        return tenantRepository.findByOwnerIdAndStatus(ownerId, TenantStatus.ACTIVE, org.springframework.data.domain.Pageable.unpaged())
+                .getContent().stream()
+                .map(this::mapToInfo)
+                .collect(Collectors.toList());
+    }
+
+    public List<TenantInfo> getAllActiveTenantsIgnoreOwner() {
+        // System level call for scheduler
         return tenantRepository.findAll().stream()
                 .filter(t -> t.getStatus() == TenantStatus.ACTIVE)
                 .map(this::mapToInfo)
@@ -31,20 +39,21 @@ public class TenantServiceClient {
                 .orElse(null);
     }
 
-    public BigDecimal getTotalDeposits() {
-        return tenantRepository.findAll().stream()
-                .filter(t -> t.getStatus() == TenantStatus.ACTIVE)
+    public BigDecimal getTotalDeposits(Long ownerId) {
+        return tenantRepository.findByOwnerIdAndStatus(ownerId, TenantStatus.ACTIVE, org.springframework.data.domain.Pageable.unpaged())
+                .getContent().stream()
                 .map(t -> t.getSecurityDeposit() != null ? t.getSecurityDeposit() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    public long getActiveTenantsCount() {
-        return tenantRepository.countByStatus(TenantStatus.ACTIVE);
+    public long getActiveTenantsCount(Long ownerId) {
+        return tenantRepository.countByOwnerIdAndStatus(ownerId, TenantStatus.ACTIVE);
     }
 
     private TenantInfo mapToInfo(Tenant t) {
         TenantInfo info = new TenantInfo();
         info.setId(t.getId());
+        info.setOwnerId(t.getOwnerId());
         info.setFullName(t.getFullName());
         info.setEmail(t.getEmail());
         info.setRoomId(t.getRoomId());
@@ -59,6 +68,7 @@ public class TenantServiceClient {
     @Data
     public static class TenantInfo {
         private Long       id;
+        private Long       ownerId;
         private String     fullName;
         private String     email;
         private Long       roomId;
@@ -69,4 +79,7 @@ public class TenantServiceClient {
         private String     status;
     }
 }
+
+
+
 

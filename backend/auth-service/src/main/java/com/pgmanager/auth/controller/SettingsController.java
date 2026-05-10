@@ -24,4 +24,11 @@ public class SettingsController {
     public ResponseEntity<PgSettings> updateSettings(@RequestBody PgSettings settings) {
         return ResponseEntity.ok(settingsService.updateSettings(settings));
     }
+
+    @GetMapping("/internal/{userId}")
+    public ResponseEntity<PgSettings> getInternalSettings(
+            @PathVariable Long userId,
+            @RequestHeader("X-Gateway-Secret") String secret) {
+        return ResponseEntity.ok(settingsService.getSettingsByUserId(userId));
+    }
 }

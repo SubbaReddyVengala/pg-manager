@@ -2,7 +2,7 @@ package com.pgmanager.api.maintenance.controller;
 
 import com.pgmanager.api.maintenance.dto.*;
 import com.pgmanager.api.maintenance.entity.GeneralExpense;
-import com.pgmanager.api.maintenance.enums.MaintenanceStatus;
+import com.pgmanager.common.enums.MaintenanceStatus;
 import com.pgmanager.api.maintenance.service.MaintenanceService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -75,3 +75,7 @@ public class MaintenanceController {
         return ResponseEntity.ok(maintenanceService.getNetProfit(month));
     }
 }
+
+
+
+

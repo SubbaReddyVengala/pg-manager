@@ -1,7 +1,7 @@
 package com.pgmanager.api.tenant.client;
 
 import com.pgmanager.api.room.dto.RoomResponse;
-import com.pgmanager.api.room.enums.RoomStatus;
+import com.pgmanager.common.enums.RoomStatus;
 import com.pgmanager.api.room.service.RoomService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,3 +43,7 @@ public class RoomServiceClient {
         roomService.decrementOccupancy(roomId);
     }
 }
+
+
+
+

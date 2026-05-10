@@ -1,7 +1,7 @@
 package com.pgmanager.api.payment.dto;
 
-import com.pgmanager.api.payment.enums.PaymentMode;
-import com.pgmanager.api.payment.enums.PaymentStatus;
+import com.pgmanager.common.enums.PaymentMode;
+import com.pgmanager.common.enums.PaymentStatus;
 import lombok.Builder;
 import lombok.Data;
 import java.math.BigDecimal;
@@ -27,3 +27,7 @@ public class PaymentResponse {
     private String        receiptNumber;
     private boolean       isOverdue;       // red highlight in Screenshot 1
 }
+
+
+
+

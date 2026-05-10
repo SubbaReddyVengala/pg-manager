@@ -38,14 +38,17 @@ $AvailableServices = @(
 )
 
 Write-Host "`n[2/4] Choose Startup Mode:" -ForegroundColor Yellow
+Write-Host " [0] Lean Mode (Consolidated API) - BEST FOR RAM"
 Write-Host " [1] Core Only (Gateway + Auth + Frontend) - MINIMAL RAM"
 Write-Host " [2] Selective (Pick specific services)"
 Write-Host " [3] Full Suite (All 8 services) - HEAVY RAM"
-$choice = Read-Host "Select (Default: 1)"
-if ($null -eq $choice -or $choice -eq "") { $choice = "1" }
+$choice = Read-Host "Select (Default: 0)"
+if ($null -eq $choice -or $choice -eq "") { $choice = "0" }
 
 $SelectedServices = @()
-if ($choice -eq "1") {
+if ($choice -eq "0") {
+    $SelectedServices = @(@{ name="pg-manager-api"; path="backend\pg-manager-api"; port=8080 })
+} elseif ($choice -eq "1") {
     $SelectedServices = $AvailableServices | Where-Object { $_.core -eq $true }
 } elseif ($choice -eq "2") {
     foreach ($svc in $AvailableServices) {

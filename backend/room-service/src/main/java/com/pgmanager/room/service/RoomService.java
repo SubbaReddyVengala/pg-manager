@@ -1,6 +1,6 @@
 package com.pgmanager.room.service;
+import com.pgmanager.common.enums.RoomStatus;
 import com.pgmanager.room.dto.*;
-import com.pgmanager.room.enums.RoomStatus;
 import java.util.List;
 
 public interface RoomService {

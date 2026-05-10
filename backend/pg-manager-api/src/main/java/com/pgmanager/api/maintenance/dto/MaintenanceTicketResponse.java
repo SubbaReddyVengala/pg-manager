@@ -1,7 +1,7 @@
 package com.pgmanager.api.maintenance.dto;
 
-import com.pgmanager.api.maintenance.enums.MaintenancePriority;
-import com.pgmanager.api.maintenance.enums.MaintenanceStatus;
+import com.pgmanager.common.enums.MaintenancePriority;
+import com.pgmanager.common.enums.MaintenanceStatus;
 import lombok.Builder;
 import lombok.Data;
 import java.math.BigDecimal;
@@ -22,3 +22,7 @@ public class MaintenanceTicketResponse {
     private LocalDateTime startedAt;
     private LocalDateTime resolvedAt;
 }
+
+
+
+

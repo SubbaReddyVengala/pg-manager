@@ -1,5 +1,5 @@
 package com.pgmanager.auth.entity;
-import com.pgmanager.auth.enums.Role;
+import com.pgmanager.common.enums.Role;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.security.core.GrantedAuthority;
@@ -18,6 +18,9 @@ public class User implements UserDetails {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false)
+    private java.util.UUID tenantId;
+
     @Column(nullable = false, unique = true)
     private String email;
 
@@ -28,6 +31,10 @@ public class User implements UserDetails {
     @Enumerated(EnumType.STRING)
     private Role role;
     private String refreshToken;
+
+    @Builder.Default
+    private int healthScore = 0;
+    private LocalDateTime lastLoginAt;
 
     @Builder.Default                     // <-- CRITICAL: must have this
     private boolean active = true;        // <-- field name is "active" not "isActive"

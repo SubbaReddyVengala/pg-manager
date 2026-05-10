@@ -1,6 +1,6 @@
 package com.pgmanager.api.room.controller;
 import com.pgmanager.api.room.dto.*;
-import com.pgmanager.api.room.enums.RoomStatus;
+import com.pgmanager.common.enums.RoomStatus;
 import com.pgmanager.api.room.service.RoomService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -93,4 +93,8 @@ public class RoomController {
         return ResponseEntity.ok(roomService.decrementOccupancy(id));
     }
 }
+
+
+
+
 

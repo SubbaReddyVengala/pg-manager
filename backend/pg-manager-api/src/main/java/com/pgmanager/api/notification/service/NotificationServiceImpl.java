@@ -1,5 +1,8 @@
 package com.pgmanager.api.notification.service;
 
+import com.pgmanager.api.auth.entity.PgSettings;
+import com.pgmanager.api.auth.service.SettingsService;
+import com.pgmanager.common.util.SecurityUtils;
 import com.pgmanager.api.notification.dto.NotificationRequest;
 import com.pgmanager.api.notification.entity.Notification;
 import com.pgmanager.api.notification.repository.NotificationRepository;
@@ -15,18 +18,30 @@ import java.util.List;
 public class NotificationServiceImpl implements NotificationService {
 
     private final NotificationRepository notificationRepository;
+    private final SettingsService settingsService;
+    private final EmailSender emailSender;
+    private final WhatsAppSender whatsappSender;
 
     @Override
     @Transactional
     public void sendNotification(NotificationRequest request) {
-        log.info("Sending notification: {}", request.getSubject());
+        Long ownerId = request.getOwnerId();
+        if (ownerId == null) {
+            try {
+                ownerId = SecurityUtils.getCurrentOwnerId();
+            } catch (Exception e) {
+                log.warn("Could not determine ownerId for notification: {}", request.getSubject());
+            }
+        }
+        
+        log.info("Sending notification: {} for owner: {}", request.getSubject(), ownerId);
         
         String type = request.getType();
-        if (type == null || "BOTH".equalsIgnoreCase(type) || "EMAIL".equalsIgnoreCase(type) || "WHATSAPP".equalsIgnoreCase(type)) {
-            type = determineType(request.getSubject());
-        }
+        if (type == null) type = determineType(request.getSubject());
 
+        // Save to DB for dashboard alerts (always)
         Notification notification = Notification.builder()
+                .ownerId(ownerId) // May be null if triggered from system without context
                 .title(request.getSubject())
                 .message(request.getMessage())
                 .type(type)
@@ -36,6 +51,37 @@ public class NotificationServiceImpl implements NotificationService {
                 .build();
         
         notificationRepository.save(notification);
+
+        // Handle external notifications based on settings
+        if (ownerId != null) {
+            PgSettings settings = settingsService.getSettingsByOwnerId(ownerId);
+            
+            boolean sendEmail = settings.isEmailNotifications();
+            boolean sendWhatsApp = settings.isWhatsappReminders();
+
+            if (sendEmail && request.getRecipient() != null) {
+                emailSender.send(request.getRecipient(), request.getSubject(), request.getMessage());
+            }
+
+            if (sendWhatsApp && request.getRecipient() != null) {
+                String message = request.getMessage();
+                
+                // Append UPI deep link if amount and UPI ID are available
+                if (request.getAmount() != null && settings.getUpiId() != null && !settings.getUpiId().isEmpty()) {
+                    String upiLink = com.pgmanager.api.common.util.UpiUtils.generateDeepLink(
+                            settings.getUpiId(), 
+                            settings.getPgName(), 
+                            request.getAmount(), 
+                            "Rent Payment"
+                    );
+                    if (upiLink != null) {
+                        message += "\n\nPay via UPI: " + upiLink;
+                    }
+                }
+                
+                whatsappSender.send(request.getRecipient(), message);
+            }
+        }
     }
 
     private String determineType(String subject) {
@@ -50,17 +96,21 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     public List<Notification> getAlerts() {
-        return notificationRepository.findAllByOrderByCreatedAtDesc();
+        return notificationRepository.findByOwnerIdOrderByCreatedAtDesc(SecurityUtils.getCurrentOwnerId());
     }
 
     @Override
     public long getUnreadCount() {
-        return notificationRepository.countByIsReadFalse();
+        return notificationRepository.countByOwnerIdAndIsReadFalse(SecurityUtils.getCurrentOwnerId());
     }
 
     @Override
     @Transactional
     public void markAllRead() {
-        notificationRepository.markAllAsRead();
+        notificationRepository.markAllAsReadByOwner(SecurityUtils.getCurrentOwnerId());
     }
 }
+
+
+
+

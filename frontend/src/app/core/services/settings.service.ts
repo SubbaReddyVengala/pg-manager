@@ -18,6 +18,7 @@ export interface PgSettings {
   defaultRentDueDay: number;
   lateFeeAfterDays: number;
   lateFeeAmount: number;
+  upiId?: string;
 }
 
 @Injectable({
@@ -56,5 +57,9 @@ export class SettingsService {
   updateLocalName(name: string): void {
     this.pgNameSubject.next(name);
     this.titleService.setTitle(name);
+  }
+
+  submitLimitRequest(request: any): Observable<void> {
+    return this.http.post<void>(`${this.apiUrl}/limit-requests`, request);
   }
 }

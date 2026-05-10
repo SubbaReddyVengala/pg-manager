@@ -24,9 +24,17 @@ public class NotificationServiceImpl implements NotificationService {
 
     private final JavaMailSender mailSender;
     private final NotificationRepository repository;
+    private final com.pgmanager.notification.client.ResendEmailClient resendClient;
+    private final com.pgmanager.notification.client.WhatsAppCloudApiClient waCloudClient;
 
     @Value("${spring.mail.username:noreply@pgmanager.com}")
     private String fromEmail;
+
+    @Value("${resend.api-key:re_placeholder}")
+    private String resendApiKey;
+
+    @Value("${whatsapp.api-token:wa_placeholder}")
+    private String waApiToken;
 
     @Value("${twilio.account-sid:AC_placeholder}")
     private String twilioSid;
@@ -94,6 +102,11 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     private void sendEmail(String to, String subject, String body) {
+        if (resendApiKey != null && !resendApiKey.startsWith("re_placeholder") && !resendApiKey.isEmpty()) {
+            resendClient.sendEmail(to, subject, body);
+            return;
+        }
+
         try {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom(fromEmail);
@@ -108,6 +121,11 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     private void sendWhatsApp(String to, String body) {
+        if (waApiToken != null && !waApiToken.startsWith("wa_placeholder") && !waApiToken.isEmpty()) {
+            waCloudClient.sendMessage(to, body);
+            return;
+        }
+
         if (twilioSid == null || twilioSid.startsWith("AC_") || twilioSid.isEmpty()) {
             log.warn("Twilio not configured. Skipping WhatsApp message to {}", to);
             return;

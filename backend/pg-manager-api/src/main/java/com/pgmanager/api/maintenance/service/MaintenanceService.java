@@ -2,7 +2,7 @@ package com.pgmanager.api.maintenance.service;
 
 import com.pgmanager.api.maintenance.dto.*;
 import com.pgmanager.api.maintenance.entity.GeneralExpense;
-import com.pgmanager.api.maintenance.enums.MaintenanceStatus;
+import com.pgmanager.common.enums.MaintenanceStatus;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -19,3 +19,7 @@ public interface MaintenanceService {
     List<GeneralExpense> getExpenses(LocalDate month);
     NetProfitResponse getNetProfit(LocalDate month);
 }
+
+
+
+

@@ -1,6 +1,6 @@
 package com.pgmanager.room.controller;
 import com.pgmanager.room.dto.*;
-import com.pgmanager.room.enums.RoomStatus;
+import com.pgmanager.common.enums.RoomStatus;
 import com.pgmanager.room.service.RoomService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

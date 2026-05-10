@@ -1,5 +1,6 @@
 package com.pgmanager.payment.scheduler;
 
+import com.pgmanager.common.enums.PaymentStatus;
 import com.pgmanager.payment.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,11 +36,11 @@ public class RentDueScheduler {
         LocalDate firstOfMonth = LocalDate.now().withDayOfMonth(1);
         log.info("[Scheduler] Checking for overdue payments for {}", firstOfMonth);
         
-        List<com.pgmanager.payment.entity.RentPayment> pending = paymentRepository.findByRentMonthAndStatus(firstOfMonth, com.pgmanager.payment.enums.PaymentStatus.PENDING);
+        List<com.pgmanager.payment.entity.RentPayment> pending = paymentRepository.findByRentMonthAndStatus(firstOfMonth, PaymentStatus.PENDING);
         
         for (com.pgmanager.payment.entity.RentPayment p : pending) {
             // Update status to OVERDUE
-            p.setStatus(com.pgmanager.payment.enums.PaymentStatus.OVERDUE);
+            p.setStatus(PaymentStatus.OVERDUE);
             paymentRepository.save(p);
             
             // Send notification

@@ -22,6 +22,8 @@ public class NotificationServiceClient {
                     .message(request.getMessage())
                     .type(request.getType())
                     .tenantId(request.getTenantId())
+                    .ownerId(request.getOwnerId())
+                    .amount(request.getAmount())
                     .build());
             log.info("Notification sent successfully: {}", request.getSubject());
         } catch (Exception e) {
@@ -36,5 +38,11 @@ public class NotificationServiceClient {
         private String message;
         private String type; // EMAIL, WHATSAPP, BOTH
         private Long tenantId;
+        private Long ownerId;
+        private java.math.BigDecimal amount;
     }
 }
+
+
+
+

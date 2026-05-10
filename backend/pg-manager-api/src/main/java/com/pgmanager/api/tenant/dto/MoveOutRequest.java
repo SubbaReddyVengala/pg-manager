@@ -9,3 +9,7 @@ public class MoveOutRequest {
     @NotNull(message = "Move-out date is required")
     private LocalDate moveOutDate;
 }
+
+
+
+

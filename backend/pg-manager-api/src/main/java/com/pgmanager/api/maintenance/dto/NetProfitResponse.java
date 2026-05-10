@@ -13,3 +13,7 @@ public class NetProfitResponse {
     private BigDecimal totalGeneralExpenses;
     private BigDecimal netProfit;
 }
+
+
+
+

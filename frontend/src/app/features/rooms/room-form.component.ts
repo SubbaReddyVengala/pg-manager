@@ -35,12 +35,15 @@ import { RoomService } from '../../core/services/room.service';
             <mat-label>Room Number *</mat-label>
             <input matInput formControlName="roomNumber" placeholder="e.g. 101">
             <mat-error *ngIf="f['roomNumber'].hasError('required')">Required</mat-error>
+            <mat-error *ngIf="f['roomNumber'].hasError('maxlength')">Max 20 chars</mat-error>
+            <mat-error *ngIf="f['roomNumber'].hasError('pattern')">Letters/Numbers/Hyphens only</mat-error>
           </mat-form-field>
           <mat-form-field appearance="outline">
             <mat-label>Floor *</mat-label>
             <input matInput formControlName="floor" type="number" placeholder="1">
             <mat-error *ngIf="f['floor'].hasError('required')">Required</mat-error>
             <mat-error *ngIf="f['floor'].hasError('min')">Min floor is 1</mat-error>
+            <mat-error *ngIf="f['floor'].hasError('max')">Max floor is 100</mat-error>
           </mat-form-field>
         </div>
         <div class="row-2">
@@ -131,12 +134,12 @@ export class RoomFormComponent implements OnInit {
   constructor(private fb: FormBuilder, private roomService: RoomService, private cdr: ChangeDetectorRef) {}
   ngOnInit(): void {
     this.form = this.fb.group({
-      roomNumber:  [this.room?.roomNumber  ?? '', Validators.required],
-      floor:       [this.room?.floor       ?? 1,  [Validators.required, Validators.min(1)]],
+      roomNumber:  [this.room?.roomNumber  ?? '', [Validators.required, Validators.maxLength(20), Validators.pattern('^[a-zA-Z0-9\\-\\s]*$')]],
+      floor:       [this.room?.floor       ?? 1,  [Validators.required, Validators.min(1), Validators.max(100)]],
       roomType:    [this.room?.roomType    ?? '', Validators.required],
       maxCapacity: [this.room?.maxCapacity ?? 1,  [Validators.required, Validators.min(1)]],
       rentAmount:  [this.room?.rentAmount  ?? '', [Validators.required, Validators.min(1)]],
-      amenities:   [this.room?.amenities   ?? ''],
+      amenities:   [this.room?.amenities   ?? '', Validators.maxLength(500)],
       status:      [this.room?.status      ?? 'AVAILABLE', Validators.required],
     });
   }

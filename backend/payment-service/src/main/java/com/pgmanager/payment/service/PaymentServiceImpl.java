@@ -5,12 +5,18 @@ import com.itextpdf.kernel.pdf.*;
 import com.itextpdf.layout.Document;
 import com.itextpdf.layout.element.*;
 import com.itextpdf.layout.properties.TextAlignment;
+import com.pgmanager.common.enums.PaymentMode;
+import com.pgmanager.common.enums.PaymentStatus;
 import com.pgmanager.payment.client.TenantServiceClient;
+import com.pgmanager.payment.context.UserContext;
 import com.pgmanager.payment.dto.*;
 import com.pgmanager.payment.entity.RentPayment;
-import com.pgmanager.payment.enums.PaymentStatus;
 import com.pgmanager.payment.repository.PaymentRepository;
+import com.pgmanager.payment.client.AuthServiceClient;
+import com.pgmanager.payment.client.NotificationServiceClient;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
@@ -24,20 +30,25 @@ public class PaymentServiceImpl implements PaymentService {
 
     private final PaymentRepository     paymentRepository;
     private final TenantServiceClient   tenantClient;
-    private final com.pgmanager.payment.client.NotificationServiceClient notificationClient;
+    private final NotificationServiceClient notificationClient;
+    private final AuthServiceClient authClient;
 
     @Override
     public Page<PaymentResponse> getPaymentsByMonth(LocalDate month, PaymentStatus status, Pageable pageable) {
+        Long userId = UserContext.getUserId();
         LocalDate firstOfMonth = month.withDayOfMonth(1);
         Page<RentPayment> payments = status != null
-                ? paymentRepository.findByRentMonthAndStatus(firstOfMonth, status, pageable)
-                : paymentRepository.findByRentMonth(firstOfMonth, pageable);
+                ? paymentRepository.findByUserIdAndRentMonthAndStatus(userId, firstOfMonth, status, pageable)
+                : paymentRepository.findByUserIdAndRentMonth(userId, firstOfMonth, pageable);
         payments.forEach(this::refreshOverdueStatus);
         return payments.map(this::toResponse);
     }
 
     @Override
     public PaymentResponse recordPayment(PaymentRequest req) {
+        Long userId = UserContext.getUserId();
+        String userEmail = UserContext.getUserEmail();
+        
         LocalDate firstOfMonth = req.getRentMonth().withDayOfMonth(1);
         RentPayment payment = paymentRepository
                 .findByTenantIdAndRentMonth(req.getTenantId(), firstOfMonth)
@@ -73,10 +84,12 @@ public class PaymentServiceImpl implements PaymentService {
 
         RentPayment saved = paymentRepository.save(payment);
 
+        authClient.logEvent(userId, userEmail, "PAYMENT_RECORDED", "Payment of ₹" + req.getAmountPaid() + " recorded for " + payment.getTenantName());
+
         // Send payment confirmation notification
         TenantServiceClient.TenantInfo tenant = tenantClient.getTenant(payment.getTenantId());
         if (tenant != null) {
-            notificationClient.send(com.pgmanager.payment.client.NotificationServiceClient.NotificationRequest.builder()
+            notificationClient.send(NotificationServiceClient.NotificationRequest.builder()
                 .tenantId(tenant.getId())
                 .recipient(tenant.getEmail())
                 .subject("Payment Received — " + tenant.getFullName())
@@ -93,15 +106,16 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     public PaymentStatsResponse getStats(LocalDate month) {
+        Long userId = UserContext.getUserId();
         LocalDate firstOfMonth = month.withDayOfMonth(1);
-        BigDecimal collected  = paymentRepository.sumCollectedByMonth(firstOfMonth);
-        BigDecimal outstanding = paymentRepository.sumOutstandingByMonth(firstOfMonth);
-        long collectedCount   = paymentRepository.countByRentMonthAndStatus(firstOfMonth, PaymentStatus.PAID);
-        long overdueCount     = paymentRepository.countByRentMonthAndStatus(firstOfMonth, PaymentStatus.OVERDUE);
+        BigDecimal collected  = paymentRepository.sumCollectedByMonth(userId, firstOfMonth);
+        BigDecimal outstanding = paymentRepository.sumOutstandingByMonth(userId, firstOfMonth);
+        long collectedCount   = paymentRepository.countByUserIdAndRentMonthAndStatus(userId, firstOfMonth, PaymentStatus.PAID);
+        long overdueCount     = paymentRepository.countByUserIdAndRentMonthAndStatus(userId, firstOfMonth, PaymentStatus.OVERDUE);
 
         // Calculate Growth Rate
         LocalDate prevMonth = firstOfMonth.minusMonths(1);
-        BigDecimal prevCollected = paymentRepository.sumCollectedByMonth(prevMonth);
+        BigDecimal prevCollected = paymentRepository.sumCollectedByMonth(userId, prevMonth);
         double growth = 0.0;
         if (prevCollected != null && prevCollected.compareTo(BigDecimal.ZERO) > 0) {
             growth = collected.subtract(prevCollected)
@@ -110,9 +124,7 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         LocalDate today = LocalDate.now();
-        LocalDate weekEnd = today.plusDays(7);
-        List<RentPayment> dueThisWeek = paymentRepository.findDueThisWeek(
-                firstOfMonth, today.getDayOfMonth(), weekEnd.getDayOfMonth());
+        List<RentPayment> dueThisWeek = paymentRepository.findDueThisWeek(userId, today);
         BigDecimal dueThisWeekAmt = dueThisWeek.stream()
                 .map(RentPayment::getRentAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -121,13 +133,13 @@ public class PaymentServiceImpl implements PaymentService {
         long depositsCount = tenantClient.getActiveTenantsCount();
 
         return PaymentStatsResponse.builder()
-                .collected(collected)
+                .collected(collected != null ? collected : BigDecimal.ZERO)
                 .collectedCount(collectedCount)
-                .outstanding(outstanding)
+                .outstanding(outstanding != null ? outstanding : BigDecimal.ZERO)
                 .overdueCount(overdueCount)
                 .dueThisWeek(dueThisWeekAmt)
                 .dueThisWeekCount(dueThisWeek.size())
-                .depositsHeld(depositsHeld)
+                .depositsHeld(depositsHeld != null ? depositsHeld : BigDecimal.ZERO)
                 .depositsCount(depositsCount)
                 .growthRate(growth)
                 .build();
@@ -141,6 +153,7 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     public int generateDues(LocalDate month) {
+        Long userId = UserContext.getUserId();
         LocalDate firstOfMonth = month.withDayOfMonth(1);
         List<TenantServiceClient.TenantInfo> tenants = tenantClient.getActiveTenants();
         if (tenants == null) return 0;
@@ -150,6 +163,7 @@ public class PaymentServiceImpl implements PaymentService {
                 continue;
             }
             RentPayment due = RentPayment.builder()
+                    .userId(userId)
                     .tenantId(t.getId())
                     .tenantName(t.getFullName())
                     .roomId(t.getRoomId())
@@ -162,13 +176,26 @@ public class PaymentServiceImpl implements PaymentService {
                     .build();
             paymentRepository.save(due);
             
+            // Fetch owner settings for UPI link
+            AuthServiceClient.PgSettings settings = authClient.getSettings(userId);
+            String message = String.format("Rent of ₹%s for %s is now due. Please pay by the 5th to avoid late fees.", 
+                    t.getMonthlyRent(), firstOfMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy")));
+            
+            if (settings != null && settings.getUpiId() != null && !settings.getUpiId().isEmpty()) {
+                String upiLink = String.format("upi://pay?pa=%s&pn=%s&am=%s&cu=INR&tn=Rent_%s",
+                        settings.getUpiId(), 
+                        settings.getPgName().replace(" ", "%20"),
+                        t.getMonthlyRent(),
+                        firstOfMonth.format(DateTimeFormatter.ofPattern("MMM_yyyy")));
+                message += "\n\nPay via UPI: " + upiLink;
+            }
+
             // Send rent due notification
-            notificationClient.send(com.pgmanager.payment.client.NotificationServiceClient.NotificationRequest.builder()
+            notificationClient.send(NotificationServiceClient.NotificationRequest.builder()
                 .tenantId(t.getId())
                 .recipient(t.getEmail())
                 .subject("Rent Due Reminder — " + t.getFullName())
-                .message(String.format("Rent of ₹%s for %s is now due. Please pay by the 5th to avoid late fees.", 
-                        t.getMonthlyRent(), firstOfMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy"))))
+                .message(message)
                 .type("BOTH")
                 .build());
                 
@@ -179,6 +206,7 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     public void generateDueForTenant(Long tenantId, LocalDate month) {
+        Long userId = UserContext.getUserId();
         LocalDate firstOfMonth = month.withDayOfMonth(1);
         if (paymentRepository.findByTenantIdAndRentMonth(tenantId, firstOfMonth).isPresent()) {
             return;
@@ -187,6 +215,7 @@ public class PaymentServiceImpl implements PaymentService {
         if (t == null) return;
 
         RentPayment due = RentPayment.builder()
+                .userId(userId)
                 .tenantId(t.getId())
                 .tenantName(t.getFullName())
                 .roomId(t.getRoomId())
@@ -200,7 +229,7 @@ public class PaymentServiceImpl implements PaymentService {
         paymentRepository.save(due);
 
         // Send rent due notification
-        notificationClient.send(com.pgmanager.payment.client.NotificationServiceClient.NotificationRequest.builder()
+        notificationClient.send(NotificationServiceClient.NotificationRequest.builder()
             .tenantId(t.getId())
             .recipient(t.getEmail())
             .subject("Rent Due Reminder — " + t.getFullName())
@@ -306,12 +335,6 @@ public class PaymentServiceImpl implements PaymentService {
         table.addCell(new Cell().add(new Paragraph(value).setFontSize(10).setBold().setFontColor(valCol))
                 .setPaddingRight(20).setPaddingTop(15).setPaddingBottom(15).setTextAlignment(TextAlignment.RIGHT).setBorder(com.itextpdf.layout.borders.Border.NO_BORDER)
                 .setBorderBottom(new com.itextpdf.layout.borders.SolidBorder(new com.itextpdf.kernel.colors.DeviceRgb(241, 245, 249), 1f)));
-    }
-
-    private void addRow(Table table, String label, String value) {
-        // (This old method is no longer used but kept for internal calls if any)
-        table.addCell(new Cell().add(new Paragraph(label).setBold().setFontSize(10)));
-        table.addCell(new Cell().add(new Paragraph(value).setFontSize(10)));
     }
 
     private String generateReceiptNumber(RentPayment p) {

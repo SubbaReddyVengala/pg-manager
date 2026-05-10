@@ -49,13 +49,23 @@ import { Subject, takeUntil } from 'rxjs';
         <div class="filter-tabs">
           <button *ngFor="let t of tabs" [class.active]="activeTab === t" (click)="setTab(t)">{{ t }}</button>
         </div>
-        <div class="list-count" *ngIf="rooms.length > 0">
-          Total {{ filteredRooms.length }} rooms
+        <div class="list-count" *ngIf="!loading && rooms.length > 0">
+          Total {{ totalElements }} rooms
+        </div>
+      </div>
+
+      <!-- LOADING STATE -->
+      <div class="loading-wrap" *ngIf="loading">
+        <div class="skel-grid" *ngIf="viewMode === 'GRID'">
+          <div class="skel-cell" *ngFor="let i of [1,2,3,4,5,6,7,8]"></div>
+        </div>
+        <div class="skel-list" *ngIf="viewMode === 'LIST'">
+          <div class="skel-row" *ngFor="let i of [1,2,3,4,5,6]"></div>
         </div>
       </div>
 
       <!-- GRID VIEW -->
-      <div class="grid-container" *ngIf="viewMode === 'GRID' && filteredRooms.length > 0">
+      <div class="grid-container" *ngIf="!loading && viewMode === 'GRID' && filteredRooms.length > 0">
         <div class="floor-section" *ngFor="let floor of floors">
           <div class="floor-header">
              <span class="floor-label">FLOOR {{ floor }}</span>
@@ -296,6 +306,13 @@ import { Subject, takeUntil } from 'rxjs';
     .filter-tabs button.active { background: #1e293b; color: white; }
     .list-count { font-size: 12px; font-weight: 600; color: #94a3b8; margin-left: auto; }
     
+    .grid-container { display: flex; flex-direction: column; gap: 32px; }
+    .loading-wrap { padding: 40px 0; }
+    .skel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; }
+    .skel-cell { height: 100px; background: #f1f5f9; border-radius: 12px; animation: skel-pulse 1.5s infinite; }
+    .skel-row { height: 48px; background: #f1f5f9; border-radius: 8px; margin-bottom: 12px; animation: skel-pulse 1.5s infinite; }
+    @keyframes skel-pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+
     .floor-section { margin-bottom: 32px; }
     .floor-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }
     .floor-label { font-size: 11px; font-weight: 800; color: #1e293b; letter-spacing: 1px; }
@@ -356,22 +373,32 @@ import { Subject, takeUntil } from 'rxjs';
     .pag-buttons button:disabled { opacity: 0.4; cursor: not-allowed; }
     .pag-buttons button mat-icon { font-size: 20px; width: 20px; height: 20px; }
 
-    .drawer-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.2); z-index: 1000; }
-    .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 420px; background: white; box-shadow: -4px 0 20px rgba(0,0,0,0.1); padding: 32px; display: flex; flex-direction: column; }
-    .drawer-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; }
+    .drawer-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 1000; backdrop-filter: blur(2px); }
+    .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 420px; background: white; box-shadow: -10px 0 30px rgba(0,0,0,0.1); padding: 0; display: flex; flex-direction: column; overflow: hidden; animation: slideIn 0.3s ease-out; }
+    @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+    
+    .drawer-header { display: flex; justify-content: space-between; align-items: center; padding: 24px 32px; border-bottom: 1px solid #f1f5f9; background: #fff; z-index: 2; }
     .drawer-header h2 { margin: 0; font-size: 20px; font-weight: 800; color: #1e293b; }
-    .close-x { border: none; background: transparent; color: #94a3b8; cursor: pointer; }
-    .section-title { font-size: 10px; font-weight: 700; color: #94a3b8; letter-spacing: 1px; margin-bottom: 16px; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; }
-    .drawer-form { display: flex; flex-direction: column; gap: 16px; flex: 1; overflow-y: auto; }
+    .close-x { border: none; background: transparent; color: #94a3b8; cursor: pointer; display: flex; padding: 4px; border-radius: 50%; transition: 0.2s; }
+    .close-x:hover { background: #f1f5f9; color: #1e293b; }
+
+    .drawer-form { padding: 32px; flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+    .drawer-form::-webkit-scrollbar { width: 6px; }
+    .drawer-form::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+
+    .section-title { font-size: 10px; font-weight: 700; color: #94a3b8; letter-spacing: 1px; margin: 16px 0 8px; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; text-transform: uppercase; }
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     .field { display: flex; flex-direction: column; gap: 6px; }
-    .field label { font-size: 12px; font-weight: 600; color: #64748b; }
-    .field input, .field select { border: 1px solid #e2e8f0; padding: 10px 12px; border-radius: 8px; font-size: 14px; outline: none; background: #f8fafc; transition: 0.2s; }
-    .field input:focus, .field select:focus { border-color: #3b82f6; background: white; }
-    .drawer-actions { margin-top: auto; display: flex; gap: 12px; padding-top: 32px; }
-    .btn-cancel { flex: 1; border: 1px solid #e2e8f0; background: white; padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer; }
-    .btn-submit { flex: 1.5; border: none; background: #1e293b; color: white; padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer; }
-    .btn-submit:disabled { background: #cbd5e1; color: #94a3b8; cursor: not-allowed; }
+    .field label { font-size: 12px; font-weight: 700; color: #475569; }
+    .field input, .field select { border: 1.5px solid #e2e8f0; padding: 10px 14px; border-radius: 10px; font-size: 14px; outline: none; background: #f8fafc; transition: 0.2s; }
+    .field input:focus, .field select:focus { border-color: #3b82f6; background: white; box-shadow: 0 0 0 4px rgba(59,130,246,0.1); }
+    
+    .drawer-actions { padding: 24px 32px; border-top: 1px solid #f1f5f9; background: #f8fafc; display: flex; gap: 12px; }
+    .btn-cancel { flex: 1; border: 1.5px solid #e2e8f0; background: white; padding: 12px; border-radius: 10px; font-weight: 700; cursor: pointer; transition: 0.2s; }
+    .btn-cancel:hover { background: #f1f5f9; }
+    .btn-submit { flex: 1.5; border: none; background: #1e293b; color: white; padding: 12px; border-radius: 10px; font-weight: 700; cursor: pointer; transition: 0.2s; }
+    .btn-submit:hover { background: #0f172a; transform: translateY(-1px); }
+    .btn-submit:disabled { background: #cbd5e1; cursor: not-allowed; transform: none; }
 
     .view-content { display: flex; flex-direction: column; gap: 20px; }
     .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; background: #f8fafc; padding: 16px; border-radius: 12px; }
@@ -403,6 +430,7 @@ export class RoomsComponent implements OnInit, OnDestroy {
   searchQuery = '';
   activeTab = 'ALL';
   tabs = ['ALL', 'AVAILABLE', 'OCCUPIED', 'MAINTENANCE'];
+  loading = true;
   
   // Pagination State
   currentPage = 0;
@@ -441,14 +469,22 @@ export class RoomsComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void { this.destroy$.next(); this.destroy$.complete(); }
 
   loadRooms(): void {
-    // If Grid view, we might want to load more for now or stick to pagination
-    this.roomService.getRooms(this.activeTab, this.searchQuery, this.currentPage, this.pageSize).subscribe(res => {
-      this.rooms = res.content;
-      this.filteredRooms = res.content;
-      this.totalElements = res.totalElements;
-      this.totalPages = res.totalPages;
-      this.floors = [...new Set(res.content.map(r => r.floor))].sort((a, b) => a - b);
-      this.cdr.detectChanges();
+    this.loading = true;
+    this.cdr.detectChanges();
+    this.roomService.getRooms(this.activeTab, this.searchQuery, this.currentPage, this.pageSize).subscribe({
+      next: (res) => {
+        this.rooms = res.content;
+        this.filteredRooms = res.content;
+        this.totalElements = res.totalElements;
+        this.totalPages = res.totalPages;
+        this.floors = [...new Set(res.content.map(r => r.floor))].sort((a, b) => a - b);
+        this.loading = false;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.loading = false;
+        this.cdr.detectChanges();
+      }
     });
   }
 
@@ -511,7 +547,10 @@ export class RoomsComponent implements OnInit, OnDestroy {
         this.loadRooms();
         this.closeDrawer();
       },
-      error: () => this.snackBar.open('Failed to save room.', 'Close', { duration: 5000 })
+      error: (err) => {
+        const msg = err.error?.message || 'Failed to save room.';
+        this.snackBar.open(msg, 'Close', { duration: 5000 });
+      }
     });
   }
 

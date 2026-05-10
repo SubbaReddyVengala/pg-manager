@@ -1,5 +1,7 @@
 package com.pgmanager.api.auth.entity;
-import com.pgmanager.api.auth.enums.Role;
+
+import com.pgmanager.common.enums.Role;
+import com.pgmanager.common.enums.AccountStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.security.core.GrantedAuthority;
@@ -21,22 +23,43 @@ public class User implements UserDetails {
     @Column(nullable = false, unique = true)
     private String email;
 
+    private String phone;
+
     @Column(nullable = false)
     private String passwordHash;
+    
     private String fullName;
 
     @Enumerated(EnumType.STRING)
     private Role role;
+    
     private String refreshToken;
+    private Long ownerId;
+    private String tempPassword;
+    
+    private String resetToken;
+    private LocalDateTime resetTokenExpiry;
 
-    @Builder.Default                     // <-- CRITICAL: must have this
-    private boolean active = true;        // <-- field name is "active" not "isActive"
+    @Builder.Default
+    private boolean isFirstLogin = true;
+
+    @Builder.Default
+    private boolean active = true;
+
+    @Enumerated(EnumType.STRING)
+    @Builder.Default
+    private AccountStatus status = AccountStatus.ACTIVE;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @Column(nullable = false)
     private LocalDateTime updatedAt;
+
+    private LocalDateTime lastLoginAt;
+
+    @Builder.Default
+    private int healthScore = 0;
 
     @PrePersist
     protected void onCreate() {
@@ -48,16 +71,19 @@ public class User implements UserDetails {
         updatedAt = LocalDateTime.now();
     }
 
-    // === UserDetails interface ===
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
     }
+
     @Override public String  getPassword()             { return passwordHash; }
     @Override public String  getUsername()             { return email; }
     @Override public boolean isAccountNonExpired()     { return true; }
     @Override public boolean isAccountNonLocked()      { return true; }
     @Override public boolean isCredentialsNonExpired() { return true; }
-    @Override public boolean isEnabled()               { return active; }
+    @Override public boolean isEnabled()               { return active && status == AccountStatus.ACTIVE; }
 }
+
+
+
 

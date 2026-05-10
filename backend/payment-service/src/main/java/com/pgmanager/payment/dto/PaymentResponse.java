@@ -1,7 +1,7 @@
 package com.pgmanager.payment.dto;
 
-import com.pgmanager.payment.enums.PaymentMode;
-import com.pgmanager.payment.enums.PaymentStatus;
+import com.pgmanager.common.enums.PaymentMode;
+import com.pgmanager.common.enums.PaymentStatus;
 import lombok.Builder;
 import lombok.Data;
 import java.math.BigDecimal;

@@ -6,8 +6,8 @@ import com.itextpdf.layout.Document;
 import com.itextpdf.layout.element.Paragraph;
 import com.itextpdf.layout.properties.TextAlignment;
 import com.pgmanager.payment.dto.*;
+import com.pgmanager.common.enums.PaymentStatus;
 import com.pgmanager.payment.entity.RentPayment;
-import com.pgmanager.payment.enums.PaymentStatus;
 import com.pgmanager.payment.repository.PaymentRepository;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.*;
@@ -33,8 +33,9 @@ public class ReportServiceImpl implements ReportService {
     // ── Monthly Report ────────────────────────────────────────────────────
     @Override
     public MonthlyReportResponse getMonthlyReport(LocalDate month) {
+        Long userId = com.pgmanager.payment.context.UserContext.getUserId();
         LocalDate firstOfMonth = month.withDayOfMonth(1);
-        List<RentPayment> payments = paymentRepository.findByRentMonth(firstOfMonth);
+        List<RentPayment> payments = paymentRepository.findByUserIdAndRentMonth(userId, firstOfMonth, org.springframework.data.domain.Pageable.unpaged()).getContent();
 
         BigDecimal totalCollected = payments.stream()
                 .map(RentPayment::getAmountPaid)
@@ -81,6 +82,7 @@ public class ReportServiceImpl implements ReportService {
     // ── Annual Summary ────────────────────────────────────────────────────
     @Override
     public AnnualSummaryResponse getAnnualSummary(int year) {
+        Long userId = com.pgmanager.payment.context.UserContext.getUserId();
         List<AnnualSummaryResponse.MonthSummary> months = new ArrayList<>();
         BigDecimal yearCollected   = BigDecimal.ZERO;
         BigDecimal yearOutstanding = BigDecimal.ZERO;
@@ -88,7 +90,7 @@ public class ReportServiceImpl implements ReportService {
 
         for (int m = 1; m <= 12; m++) {
             LocalDate monthDate = LocalDate.of(year, m, 1);
-            List<RentPayment> payments = paymentRepository.findByRentMonth(monthDate);
+            List<RentPayment> payments = paymentRepository.findByUserIdAndRentMonth(userId, monthDate, org.springframework.data.domain.Pageable.unpaged()).getContent();
 
             BigDecimal collected = payments.stream()
                     .map(RentPayment::getAmountPaid)

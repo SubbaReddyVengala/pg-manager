@@ -28,3 +28,14 @@ room-service:
 payment-service:
   url: http://127.0.0.1:8084
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+sentry:
+  dsn: ${SENTRY_DSN:https://placeholder@sentry.io/placeholder}
+  environment: ${SENTRY_ENVIRONMENT:production}
+  traces-sample-rate: 0.1
+  send-default-pii: false

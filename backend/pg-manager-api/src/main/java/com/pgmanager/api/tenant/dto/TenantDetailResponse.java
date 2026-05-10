@@ -1,6 +1,6 @@
 package com.pgmanager.api.tenant.dto;
-import com.pgmanager.api.tenant.enums.IdProofType;
-import com.pgmanager.api.tenant.enums.TenantStatus;
+import com.pgmanager.common.enums.IdProofType;
+import com.pgmanager.common.enums.TenantStatus;
 import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -34,3 +34,7 @@ public class TenantDetailResponse {
     private long          stayDurationMonths; // "2 months"
     private boolean       isGoodStanding;   // true if outstanding == 0
 }
+
+
+
+

@@ -7,6 +7,8 @@ export interface AuthResponse {
   email:        string;
   fullName:     string;
   role:         string;
+  ownerId:      number;
+  isFirstLogin: boolean;
 }
 
 // Matches backend ErrorResponse.java exactly
@@ -23,6 +25,9 @@ export interface UserProfile {
   email:    string;
   fullName: string;
   role:     string;
+  ownerId:  number;
+  isFirstLogin: boolean;
+  tempPassword?: string;
 }
 
 // Used for login form
@@ -35,5 +40,18 @@ export interface LoginRequest {
 export interface RegisterRequest {
   fullName: string;
   email:    string;
+  phone:    string;
   password: string;
+  maxRooms?: number;
+  maxTenants?: number;
+  dashboardEnabled?: boolean;
+  paymentsEnabled?: boolean;
+  reportsEnabled?: boolean;
+  whatsappEnabled?: boolean;
+  maintenanceEnabled?: boolean;
+}
+
+export interface ChangePasswordRequest {
+  currentPassword:  string;
+  newPassword:      string;
 }

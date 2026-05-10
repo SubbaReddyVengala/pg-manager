@@ -1,6 +1,6 @@
 package com.pgmanager.tenant.entity;
-import com.pgmanager.tenant.enums.IdProofType;
-import com.pgmanager.tenant.enums.TenantStatus;
+import com.pgmanager.common.enums.IdProofType;
+import com.pgmanager.common.enums.TenantStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
@@ -14,6 +14,9 @@ public class Tenant {
 
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(nullable = false)
+    private Long userId;    // Owner ID for multi-tenancy isolation
 
     // ── Personal Details ────────────────────────
     @Column(nullable = false)

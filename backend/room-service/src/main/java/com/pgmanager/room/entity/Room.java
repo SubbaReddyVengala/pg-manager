@@ -1,6 +1,6 @@
 package com.pgmanager.room.entity;
-import com.pgmanager.room.enums.RoomStatus;
-import com.pgmanager.room.enums.RoomType;
+import com.pgmanager.common.enums.RoomStatus;
+import com.pgmanager.common.enums.RoomType;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
@@ -14,7 +14,10 @@ public class Room {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
+    private Long userId;
+
+    @Column(nullable = false)
     private String roomNumber;
 
     @Column(nullable = false)

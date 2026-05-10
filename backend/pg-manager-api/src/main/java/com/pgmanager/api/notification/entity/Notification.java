@@ -4,17 +4,21 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
 
+import org.hibernate.annotations.Filter;
+import com.pgmanager.api.common.constant.TenantConstants;
+
 @Entity
 @Table(name = "notifications")
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
+@Data @Builder @NoArgsConstructor @AllArgsConstructor
+@Filter(name = TenantConstants.TENANT_FILTER_NAME, condition = TenantConstants.TENANT_COLUMN_NAME + " = :" + TenantConstants.TENANT_PARAMETER_NAME)
 public class Notification {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(nullable = false)
+    private Long ownerId;
 
     private String title;
     
@@ -38,3 +42,7 @@ public class Notification {
         this.isRead = false;
     }
 }
+
+
+
+

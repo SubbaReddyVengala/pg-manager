@@ -1,6 +1,6 @@
 package com.pgmanager.api.tenant.controller;
 import com.pgmanager.api.tenant.dto.*;
-import com.pgmanager.api.tenant.enums.TenantStatus;
+import com.pgmanager.common.enums.TenantStatus;
 import com.pgmanager.api.tenant.service.TenantService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -95,3 +95,7 @@ public class TenantController {
         return ResponseEntity.noContent().build();
     }
 }
+
+
+
+

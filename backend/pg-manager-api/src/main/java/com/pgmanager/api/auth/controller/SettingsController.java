@@ -20,8 +20,19 @@ public class SettingsController {
     }
 
     @PutMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<PgSettings> updateSettings(@RequestBody PgSettings settings) {
         return ResponseEntity.ok(settingsService.updateSettings(settings));
     }
+
+    @PostMapping("/limit-requests")
+    @PreAuthorize("hasRole('OWNER')")
+    public ResponseEntity<Void> submitLimitRequest(@RequestBody com.pgmanager.api.auth.dto.LimitRequestDTO request) {
+        settingsService.submitLimitRequest(request);
+        return ResponseEntity.ok().build();
+    }
 }
+
+
+
+

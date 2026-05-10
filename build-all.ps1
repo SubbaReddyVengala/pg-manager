@@ -1,6 +1,7 @@
 # PG Manager - Build All Services
 $ROOT = Get-Location
 $Services = @(
+    "backend\pg-manager-common",
     "backend\api-gateway",
     "backend\auth-service",
     "backend\room-service",
@@ -8,7 +9,8 @@ $Services = @(
     "backend\payment-service",
     "backend\notification-service",
     "backend\report-service",
-    "backend\maintenance-service"
+    "backend\maintenance-service",
+    "backend\pg-manager-api"
 )
 
 Write-Host "======================================================" -ForegroundColor Cyan
@@ -22,7 +24,11 @@ Get-Process -Name "java", "node" -ErrorAction SilentlyContinue | Where-Object { 
 foreach ($svc in $Services) {
     Write-Host "`nBuilding $svc..." -ForegroundColor Yellow
     Set-Location "$ROOT\$svc"
-    ./mvnw clean package -DskipTests
+    if ($svc -eq "backend\pg-manager-common") {
+        ./mvnw clean install -DskipTests
+    } else {
+        ./mvnw clean package -DskipTests
+    }
 }
 
 Set-Location $ROOT

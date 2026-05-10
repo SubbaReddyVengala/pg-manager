@@ -1,19 +1,29 @@
 package com.pgmanager.api.tenant.entity;
-import com.pgmanager.api.tenant.enums.IdProofType;
-import com.pgmanager.api.tenant.enums.TenantStatus;
+import com.pgmanager.common.enums.IdProofType;
+import com.pgmanager.common.enums.TenantStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+import org.hibernate.annotations.Filter;
+import com.pgmanager.api.common.constant.TenantConstants;
+
+import com.pgmanager.api.common.entity.TenantEntityListener;
+
 @Entity
 @Table(name = "tenants")
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
+@EntityListeners(TenantEntityListener.class)
+@Filter(name = TenantConstants.TENANT_FILTER_NAME, condition = TenantConstants.TENANT_COLUMN_NAME + " = :" + TenantConstants.TENANT_PARAMETER_NAME)
 public class Tenant {
 
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(nullable = false)
+    private Long ownerId;
 
     // ── Personal Details ────────────────────────
     @Column(nullable = false)
@@ -22,7 +32,7 @@ public class Tenant {
     @Column(nullable = false)
     private String phone;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
     private String email;
 
     // ── Room & Rent (nullable - PENDING has no room) ──
@@ -62,4 +72,8 @@ public class Tenant {
     @PreUpdate
     protected void onUpdate() { updatedAt = LocalDateTime.now(); }
 }
+
+
+
+
 

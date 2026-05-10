@@ -8,3 +8,7 @@ public class GenerateDuesRequest {
     private LocalDate month;   // e.g. 2026-03-01 — generate dues for this month
 }
 
+
+
+
+

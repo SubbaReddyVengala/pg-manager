@@ -10,3 +10,7 @@ public class MaintenanceStatsResponse {
     private long resolvedCount;
     private String avgResolutionTime; // e.g., "2.3d"
 }
+
+
+
+

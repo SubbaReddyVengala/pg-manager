@@ -8,6 +8,10 @@ import java.util.Optional;
 
 @Repository
 public interface PgSettingsRepository extends JpaRepository<PgSettings, Long> {
-    // There should only be one settings row globally
-    Optional<PgSettings> findFirstByOrderByIdAsc();
+    Optional<PgSettings> findByOwnerId(Long ownerId);
+    void deleteAllByOwnerId(Long ownerId);
 }
+
+
+
+

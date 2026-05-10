@@ -1,8 +1,6 @@
 package com.pgmanager.maintenance.exception;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import com.pgmanager.common.dto.ErrorResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -18,14 +16,7 @@ public class GlobalExceptionHandler {
         return new ErrorResponse(
                 HttpStatus.BAD_REQUEST.value(),
                 ex.getMessage(),
-                LocalDateTime.now()
+                "/api/maintenance"
         );
-    }
-
-    @Data @AllArgsConstructor @NoArgsConstructor
-    public static class ErrorResponse {
-        private int status;
-        private String message;
-        private LocalDateTime timestamp;
     }
 }

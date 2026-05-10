@@ -1,5 +1,6 @@
 package com.pgmanager.api_gateway.filter;
 
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -20,6 +21,9 @@ public class JwtValidationGatewayFilterFactory
     @Value("${jwt.secret}")
     private String secret;
 
+    @Value("${gateway.internal-secret:pg-internal-trust-secret-2026}")
+    private String internalSecret;
+
     public JwtValidationGatewayFilterFactory() {
         super(Object.class);
     }
@@ -36,11 +40,25 @@ public class JwtValidationGatewayFilterFactory
             }
 
             try {
-                Jwts.parserBuilder()
+                Claims claims = Jwts.parserBuilder()
                         .setSigningKey(Keys.hmacShaKeyFor(
                                 secret.getBytes(StandardCharsets.UTF_8)))
                         .build()
-                        .parseClaimsJws(auth.substring(7));
+                        .parseClaimsJws(auth.substring(7))
+                        .getBody();
+
+                String email = claims.getSubject();
+                String userId = String.valueOf(claims.get("userId"));
+                String tenantId = String.valueOf(claims.get("tenantId"));
+                String role = String.valueOf(claims.get("role"));
+
+                exchange.getRequest().mutate()
+                        .header("X-User-Email", email)
+                        .header("X-User-Id", userId)
+                        .header("X-User-Tenant-Id", tenantId)
+                        .header("X-User-Role", role)
+                        .header("X-Gateway-Secret", internalSecret)
+                        .build();
 
                 return chain.filter(exchange);
 

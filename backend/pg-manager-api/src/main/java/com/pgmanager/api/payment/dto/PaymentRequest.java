@@ -1,6 +1,6 @@
 package com.pgmanager.api.payment.dto;
 
-import com.pgmanager.api.payment.enums.PaymentMode;
+import com.pgmanager.common.enums.PaymentMode;
 import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -31,6 +31,13 @@ public class PaymentRequest {
     @NotNull(message = "Payment mode is required")
     private PaymentMode paymentMode;      // CASH / UPI / BANK_TRANSFER / CHEQUE
 
+    @Size(max = 100, message = "Transaction ID must not exceed 100 characters")
     private String transactionId;         // optional UPI ref / cheque no
+
+    @Size(max = 255, message = "Note must not exceed 255 characters")
     private String note;                  // optional note
 }
+
+
+
+

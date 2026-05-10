@@ -1,6 +1,6 @@
 package com.pgmanager.api.room.client;
 
-import com.pgmanager.api.tenant.enums.TenantStatus;
+import com.pgmanager.common.enums.TenantStatus;
 import com.pgmanager.api.tenant.repository.TenantRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,3 +23,7 @@ public class TenantServiceClient {
         }
     }
 }
+
+
+
+

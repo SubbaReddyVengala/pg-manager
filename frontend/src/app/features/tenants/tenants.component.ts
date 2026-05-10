@@ -12,6 +12,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 import { Subject, takeUntil, forkJoin, debounceTime, distinctUntilChanged } from 'rxjs';
 import { TenantResponse, TenantStats } from '../../shared/models/tenant.models';
+import { AssignRoomModalComponent } from './assign-room-modal.component';
 
 @Component({
   selector: 'app-tenants',
@@ -135,6 +136,7 @@ import { TenantResponse, TenantStats } from '../../shared/models/tenant.models';
               <td class="rent-val currency">₹{{ t.monthlyRent | number }}</td>
               <td><span class="status-badge" [class]="t.status.toLowerCase()">{{ t.status }}</span></td>
               <td class="actions">
+                <button *ngIf="t.status === 'PENDING'" class="icon-btn assign" (click)="openEdit(t)" title="Assign Room"><mat-icon>meeting_room</mat-icon></button>
                 <button class="icon-btn" (click)="viewDetail(t.id)" title="View Profile"><mat-icon>visibility</mat-icon></button>
                 <button class="icon-btn edit" (click)="openEdit(t)" title="Edit"><mat-icon>edit</mat-icon></button>
               </td>
@@ -355,6 +357,7 @@ import { TenantResponse, TenantStats } from '../../shared/models/tenant.models';
     .icon-btn mat-icon:first-child:not(.edit mat-icon) { color: #64748b; }
     /* Specific hover colors */
     td.actions .icon-btn:first-child:hover { background: #eff6ff; color: #3b82f6; }
+    .icon-btn.assign:hover { background: #ecfdf5 !important; color: #10b981 !important; }
 
     .pagination-bar { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; background: #f8fafc; border-top: 1px solid #e2e8f0; }
     .pag-info { font-size: 12px; color: #64748b; font-weight: 600; }
@@ -378,23 +381,35 @@ import { TenantResponse, TenantStats } from '../../shared/models/tenant.models';
     .bulk-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s; }
     .bulk-btn:hover { background: rgba(255,255,255,0.2); }
     .bulk-btn.msg { background: #3b82f6; border-color: #3b82f6; }
+    .bulk-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s; }
     .bulk-clear { background: transparent; border: none; color: #94a3b8; font-size: 13px; font-weight: 600; cursor: pointer; margin-left: 12px; }
 
-    .drawer-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.2); z-index: 1000; }
-    .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 450px; background: white; box-shadow: -4px 0 20px rgba(0,0,0,0.1); padding: 32px; display: flex; flex-direction: column; overflow-y: auto; }
-    .drawer-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; }
+    .drawer-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 1000; backdrop-filter: blur(2px); }
+    .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 450px; background: white; box-shadow: -10px 0 30px rgba(0,0,0,0.1); padding: 0; display: flex; flex-direction: column; overflow: hidden; animation: slideIn 0.3s ease-out; }
+    @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+    
+    .drawer-header { display: flex; justify-content: space-between; align-items: center; padding: 24px 32px; border-bottom: 1px solid #f1f5f9; background: #fff; z-index: 2; }
     .drawer-header h2 { margin: 0; font-size: 20px; font-weight: 800; color: #1e293b; }
-    .close-x { border: none; background: transparent; color: #94a3b8; cursor: pointer; }
-    .section-title { font-size: 10px; font-weight: 700; color: #94a3b8; letter-spacing: 1px; margin-bottom: 16px; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; }
-    .drawer-form { display: flex; flex-direction: column; gap: 16px; }
+    .close-x { border: none; background: transparent; color: #94a3b8; cursor: pointer; display: flex; padding: 4px; border-radius: 50%; transition: 0.2s; }
+    .close-x:hover { background: #f1f5f9; color: #1e293b; }
+
+    .drawer-form { padding: 32px; flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+    .drawer-form::-webkit-scrollbar { width: 6px; }
+    .drawer-form::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+
+    .section-title { font-size: 10px; font-weight: 700; color: #94a3b8; letter-spacing: 1px; margin: 16px 0 8px; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; text-transform: uppercase; }
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     .field { display: flex; flex-direction: column; gap: 6px; }
-    .field label { font-size: 12px; font-weight: 600; color: #64748b; }
-    .field input, .field select, .field textarea { border: 1px solid #e2e8f0; padding: 10px 12px; border-radius: 8px; font-size: 14px; outline: none; background: #f8fafc; transition: 0.2s; }
-    .field input:focus, .field select:focus, .field textarea:focus { border-color: #3b82f6; background: white; }
-    .drawer-actions { margin-top: 32px; display: flex; gap: 12px; padding-bottom: 20px; }
-    .btn-cancel { flex: 1; border: 1px solid #e2e8f0; background: white; padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer; }
-    .btn-submit { flex: 1.5; border: none; background: #1e293b; color: white; padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer; }
+    .field label { font-size: 12px; font-weight: 700; color: #475569; }
+    .field input, .field select, .field textarea { border: 1.5px solid #e2e8f0; padding: 10px 14px; border-radius: 10px; font-size: 14px; outline: none; background: #f8fafc; transition: 0.2s; }
+    .field input:focus, .field select:focus, .field textarea:focus { border-color: #3b82f6; background: white; box-shadow: 0 0 0 4px rgba(59,130,246,0.1); }
+    
+    .drawer-actions { padding: 24px 32px; border-top: 1px solid #f1f5f9; background: #f8fafc; display: flex; gap: 12px; }
+    .btn-cancel { flex: 1; border: 1.5px solid #e2e8f0; background: white; padding: 12px; border-radius: 10px; font-weight: 700; cursor: pointer; transition: 0.2s; }
+    .btn-cancel:hover { background: #f1f5f9; }
+    .btn-submit { flex: 1.5; border: none; background: #1e293b; color: white; padding: 12px; border-radius: 10px; font-weight: 700; cursor: pointer; transition: 0.2s; }
+    .btn-submit:hover { background: #0f172a; transform: translateY(-1px); }
+    .btn-submit:disabled { background: #cbd5e1; cursor: not-allowed; transform: none; }
 
     .field-chk { display: flex; flex-direction: column; gap: 4px; background: #f8fafc; padding: 12px; border-radius: 10px; border: 1px dashed #e2e8f0; }
     .chk-label { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; color: #1e293b; cursor: pointer; }
@@ -440,6 +455,9 @@ export class TenantsComponent implements OnInit, OnDestroy {
   tenantForm: FormGroup;
   showDeleteConfirm = false;
   tenantToDelete: any = null;
+
+  showAssignModal = false;
+  tenantToAssign: any = null;
 
   constructor() {
     this.tenantForm = this.fb.group({
@@ -489,12 +507,10 @@ export class TenantsComponent implements OnInit, OnDestroy {
       }
       if (params['action'] === 'edit' && params['id']) {
         const id = +params['id'];
-        // Fetch full details to populate form accurately
         this.tenantService.getById(id).subscribe({
           next: (tenant) => {
             if (tenant) {
               this.openEdit(tenant);
-              // Clean URL params to prevent re-opening on refresh
               this.router.navigate([], { relativeTo: this.route, queryParams: { action: null, id: null }, queryParamsHandling: 'merge' });
             }
           }
@@ -610,6 +626,26 @@ export class TenantsComponent implements OnInit, OnDestroy {
   trackById(index: number, item: any): number { return item.id; }
   viewDetail(id: number): void { this.router.navigate(['/dashboard/tenants', id]); }
 
+  openAssign(tenant: any): void {
+    this.tenantToAssign = tenant;
+    this.showAssignModal = true;
+  }
+
+  executeAssign(roomId: number): void {
+    this.tenantService.assignRoom(this.tenantToAssign.id, roomId).subscribe({
+      next: () => {
+        this.snackBar.open('Room assigned successfully', 'OK', { duration: 3000 });
+        this.loadData();
+        this.loadStats();
+        this.showAssignModal = false;
+      },
+      error: () => {
+        this.snackBar.open('Failed to assign room.', 'Close', { duration: 5000 });
+        this.showAssignModal = false;
+      }
+    });
+  }
+
   openAdd(): void {
     this.editingTenant = null;
     this.tenantForm.reset({ moveInDate: new Date().toISOString().split('T')[0], rentDueDay: 1, idProofType: 'AADHAAR' });
@@ -636,7 +672,10 @@ export class TenantsComponent implements OnInit, OnDestroy {
         this.loadStats();
         this.closeDrawer();
       },
-      error: () => this.snackBar.open('Failed to save tenant.', 'Close', { duration: 5000 })
+      error: (err) => {
+        const msg = err.error?.message || 'Failed to save tenant.';
+        this.snackBar.open(msg, 'Close', { duration: 5000 });
+      }
     });
   }
 

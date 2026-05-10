@@ -1,17 +1,25 @@
 FROM eclipse-temurin:17-jdk-alpine as build
 WORKDIR /app
 
+# Copy maven wrapper from root
 COPY mvnw .
 COPY .mvn .mvn
-COPY pom.xml .
-COPY src src
+RUN chmod +x mvnw
 
-RUN ./mvnw clean package -DskipTests
+# Copy common library
+COPY backend/pg-manager-common backend/pg-manager-common
+# Install common library to local repo
+RUN cd backend/pg-manager-common && ./../../mvnw clean install -DskipTests
+
+# Copy API service
+COPY backend/pg-manager-api backend/pg-manager-api
+# Build API service
+RUN cd backend/pg-manager-api && ./../../mvnw clean package -DskipTests
 
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
-COPY --from=build /app/target/pg-manager-api-0.0.1-SNAPSHOT.jar app.jar
+COPY --from=build /app/backend/pg-manager-api/target/pg-manager-api-0.0.1-SNAPSHOT.jar app.jar
 
 EXPOSE 8080
 
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-Xmx256m", "-Xms128m", "-jar", "app.jar"]

@@ -19,6 +19,7 @@ public class ReportServiceImpl implements ReportService {
     private final ExternalServiceClient externalClient;
 
     @Override
+    @org.springframework.cache.annotation.Cacheable(value = "dashboardSummary")
     public DashboardSummaryResponse getDashboardSummary() {
         LocalDate currentMonth = LocalDate.now().withDayOfMonth(1);
         

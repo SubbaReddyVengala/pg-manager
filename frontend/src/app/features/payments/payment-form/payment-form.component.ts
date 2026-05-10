@@ -72,8 +72,9 @@ import { TenantResponse } from '../../../shared/models/tenant.models';
         <mat-form-field appearance='outline'>
           <mat-label>Amount Paid (₹)</mat-label>
           <input matInput type='number' formControlName='amountPaid'/>
-          @if (f['amountPaid'].touched && f['amountPaid'].errors?.['required']) {
-            <mat-error>Amount is required</mat-error>
+          @if (f['amountPaid'].touched && f['amountPaid'].invalid) {
+            <mat-error *ngIf="f['amountPaid'].errors?.['required']">Required</mat-error>
+            <mat-error *ngIf="f['amountPaid'].errors?.['min']">Must be > 0</mat-error>
           }
         </mat-form-field>
       </div>
@@ -99,12 +100,18 @@ import { TenantResponse } from '../../../shared/models/tenant.models';
         <mat-label>Transaction ID / Cheque No. (optional)</mat-label>
         <input matInput formControlName='transactionId'
                placeholder='Optional reference'/>
+        @if (f['transactionId'].hasError('maxlength')) {
+          <mat-error>Max 100 chars</mat-error>
+        }
       </mat-form-field>
 
       <mat-form-field appearance='outline' class='full-width'>
         <mat-label>Note (optional)</mat-label>
         <textarea matInput formControlName='note' rows='2'
                   placeholder='Optional note'></textarea>
+        @if (f['note'].hasError('maxlength')) {
+          <mat-error>Max 255 chars</mat-error>
+        }
       </mat-form-field>
 
       <!-- RECEIPT NOTE -->
@@ -197,11 +204,11 @@ export class PaymentFormComponent implements OnInit {
     tenantId:      [null as number | null, Validators.required],
     rentMonth:     ['', Validators.required],
     rentAmount:    [{ value: '', disabled: true }],
-    amountPaid:    [null as number | null, [Validators.required, Validators.min(1)]],
+    amountPaid:    [null as number | null, [Validators.required, Validators.min(0.01)]],
     paymentDate:   ['', Validators.required],
     paymentMode:   ['CASH' as PaymentMode, Validators.required],
-    transactionId: [''],
-    note:          [''],
+    transactionId: ['', Validators.maxLength(100)],
+    note:          ['', Validators.maxLength(255)],
   });
 
   get f() { return this.form.controls; }

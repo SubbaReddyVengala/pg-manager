@@ -1,0 +1,356 @@
+<nav class="topbar-admin">
+  <div class="nav-tab" [class.on]="activeTab === 0" (click)="switchTab(0)">Overview</div>
+  <div class="nav-tab" [class.on]="activeTab === 1" (click)="switchTab(1)">Provision owner</div>
+  <div class="nav-tab" [class.on]="activeTab === 2" (click)="switchTab(2)">Owner profile</div>
+  <div class="nav-tab" [class.on]="activeTab === 3" (click)="switchTab(3)">Health monitor</div>
+  <div class="nav-tab" [class.on]="activeTab === 4" (click)="switchTab(4)">Support tools</div>
+  <div class="nav-tab danger" [class.on]="activeTab === 5" (click)="switchTab(5)">Offboarding</div>
+</nav>
+
+<div class="wrap animate-in">
+
+  <!-- ════ PANE 0: OVERVIEW ════ -->
+  <div class="pane" *ngIf="activeTab === 0">
+    <div class="page-hdr">
+      <div class="page-eye">Super Admin Dashboard</div>
+      <h1 class="page-title">PG Owner — Full Lifecycle Management</h1>
+      <p class="page-sub">Monitor health, manage permissions, and provide support across the ecosystem.</p>
+    </div>
+
+    <div class="stat-row" *ngIf="platformStats">
+      <div class="stat" style="border-top: 3px solid #3b82f6;">
+        <div class="stat-v" style="color: #3b82f6;">{{ platformStats.totalOwners }}</div>
+        <div class="stat-l">PG Owners</div>
+      </div>
+      <div class="stat" style="border-top: 3px solid #10b981;">
+        <div class="stat-v" style="color: #10b981;">{{ platformStats.totalTenants }}</div>
+        <div class="stat-l">Total Tenants</div>
+      </div>
+      <div class="stat" style="border-top: 3px solid #f59e0b;">
+        <div class="stat-v" style="color: #f59e0b;">{{ platformStats.totalRooms }}</div>
+        <div class="stat-l">Total Rooms</div>
+      </div>
+      <div class="stat" style="border-top: 3px solid #14b8a6;">
+        <div class="stat-v" style="color: #14b8a6;">₹{{ (platformStats.totalRevenueThisMonth || 0) / 1000 | number:'1.1-1' }}k</div>
+        <div class="stat-l">Monthly Revenue</div>
+      </div>
+    </div>
+    
+    <div class="stat-row" *ngIf="!platformStats">
+      <div class="stat" style="border-top: 3px solid #3b82f6;">
+        <div class="stat-v" style="color: #3b82f6;">{{ owners.length }}</div>
+        <div class="stat-l">Total owners</div>
+      </div>
+      <!-- ... (fallback stats) -->
+    </div>
+
+    <!-- PENDING LIMIT REQUESTS -->
+    <div class="card" *ngIf="pendingRequests.length > 0">
+       <div class="card-hdr" style="color:#d97706">
+         Pending Upgrade Requests
+         <span class="nav-tag" style="background:#fef3c7; color:#d97706">{{ pendingRequests.length }} ACTION REQUIRED</span>
+       </div>
+       <div class="owner-row" *ngFor="let lr of pendingRequests">
+          <div class="avatar" style="background:#fffbeb; color:#d97706">UP</div>
+          <div style="flex:1">
+             <div class="ow-name">{{ lr.ownerName }} wants to upgrade {{ lr.requestType }}</div>
+             <div class="ow-meta">Current: {{ lr.currentLimit }} → <strong>Requested: {{ lr.requestedLimit }}</strong></div>
+          </div>
+          <div class="ow-right">
+             <button class="btn btn-success" (click)="onProcessRequest(lr.id, 'APPROVE')">Approve</button>
+             <button class="btn btn-danger" (click)="onProcessRequest(lr.id, 'REJECT')">Reject</button>
+          </div>
+       </div>
+    </div>
+
+    <div class="card">
+      <div class="card-hdr">
+        All PG Owners
+        <button class="btn btn-primary" (click)="switchTab(1)">+ Provision new owner</button>
+      </div>
+      <div class="owner-row" *ngFor="let owner of owners">
+        <div class="avatar" [ngClass]="owner.status === 'ACTIVE' ? 'av-blue' : 'av-red'">{{ owner.fullName.charAt(0) }}</div>
+        <div style="flex:1">
+          <div class="ow-name">{{ owner.fullName }}</div>
+          <div class="ow-meta">
+            {{ owner.email }} · 
+            <span *ngIf="owner.lastLoginAt">{{ owner.lastLoginAt | date:'shortTime' }} ago</span>
+            <span *ngIf="!owner.lastLoginAt" style="color:var(--red)">Never logged in</span> ·
+            {{ owner.roomCount }} rooms · {{ owner.tenantCount }} tenants
+          </div>
+        </div>
+        <div class="ow-right">
+          <span class="badge" [ngClass]="'b-' + owner.status.toLowerCase()">{{ owner.status }}</span>
+          <button class="btn" (click)="viewProfile(owner)">View profile</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ PANE 1: PROVISION WIZARD ════ -->
+  <div class="pane" *ngIf="activeTab === 1">
+    <div class="page-hdr">
+      <div class="page-eye">Provision PG Owner</div>
+      <h1 class="page-title">Create a new owner account</h1>
+    </div>
+
+    <div class="stepper">
+      <div class="step-item" [class.step-active]="provisionStep === 1" [class.step-done]="provisionStep > 1">
+        <div class="step-circle">1</div><div class="step-lbl">Identity</div>
+      </div>
+      <div class="step-line"></div>
+      <div class="step-item" [class.step-active]="provisionStep === 2" [class.step-done]="provisionStep > 2" [class.step-pending]="provisionStep < 2">
+        <div class="step-circle">2</div><div class="step-lbl">Limits</div>
+      </div>
+      <div class="step-line"></div>
+      <div class="step-item" [class.step-active]="provisionStep === 3" [class.step-done]="provisionStep > 3" [class.step-pending]="provisionStep < 3">
+        <div class="step-circle">3</div><div class="step-lbl">Permissions</div>
+      </div>
+      <div class="step-line"></div>
+      <div class="step-item" [class.step-active]="provisionStep === 4" [class.step-pending]="provisionStep < 4">
+        <div class="step-circle">4</div><div class="step-lbl">Confirm</div>
+      </div>
+    </div>
+
+    <div class="g2">
+      <!-- Step 1: Identity -->
+      <div class="card" *ngIf="provisionStep === 1">
+        <div class="card-hdr">Step 1 — Owner identity</div>
+        <form [formGroup]="ownerForm">
+          <div class="frow">
+            <label class="flabel">Full name *</label>
+            <input class="finput" formControlName="fullName" placeholder="e.g. Rahul Sharma">
+          </div>
+          <div class="frow">
+            <label class="flabel">Email address *</label>
+            <input class="finput" formControlName="email" placeholder="rahul@pgowner.com">
+          </div>
+          <div class="frow">
+            <label class="flabel">Phone number</label>
+            <input class="finput" formControlName="phone" placeholder="+91 98765 43210">
+          </div>
+          <button class="btn btn-primary" (click)="nextStep()" [disabled]="ownerForm.invalid">Next Step →</button>
+        </form>
+      </div>
+
+      <!-- Step 2: Limits -->
+      <div class="card" *ngIf="provisionStep === 2">
+        <div class="card-hdr">Step 2 — Account type & limits</div>
+        <form [formGroup]="limitsForm">
+          <div class="frow">
+            <label class="flabel">Account type</label>
+            <select class="fselect" formControlName="accountType">
+              <option>Trial — 14 days free</option>
+              <option>Active — full access</option>
+            </select>
+          </div>
+          <div class="frow">
+            <label class="flabel">Max rooms allowed</label>
+            <input class="finput" type="number" formControlName="maxRooms">
+          </div>
+          <div class="frow">
+            <label class="flabel">Max tenants allowed</label>
+            <input class="finput" type="number" formControlName="maxTenants">
+          </div>
+          <div class="btn-row">
+            <button class="btn" (click)="prevStep()">Back</button>
+            <button class="btn btn-primary" (click)="nextStep()">Next Step →</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Step 3: Permissions -->
+      <div class="card" *ngIf="provisionStep === 3">
+        <div class="card-hdr">Step 3 — Feature permissions</div>
+        <form [formGroup]="permsForm">
+          <div class="perm-grid">
+            <div class="perm-row"><span>📊 Dashboard</span><input type="checkbox" formControlName="dashboardEnabled"></div>
+            <div class="perm-row"><span>💰 Payments</span><input type="checkbox" formControlName="paymentsEnabled"></div>
+            <div class="perm-row"><span>📄 Reports</span><input type="checkbox" formControlName="reportsEnabled"></div>
+            <div class="perm-row"><span>💬 WhatsApp</span><input type="checkbox" formControlName="whatsappEnabled"></div>
+            <div class="perm-row"><span>🔧 Maintenance</span><input type="checkbox" formControlName="maintenanceEnabled"></div>
+          </div>
+          <div class="btn-row" style="margin-top: 20px">
+            <button class="btn" (click)="prevStep()">Back</button>
+            <button class="btn btn-primary" (click)="onProvision()">Create & Preview Email →</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Step 4: Preview & Send -->
+      <div class="card" *ngIf="provisionStep === 4">
+        <div class="card-hdr">Step 4 — Welcome email preview</div>
+        <div class="email-preview">
+          <div class="email-subject">Subject: Welcome to PG Manager — Your account is ready</div>
+          Hi {{ ownerForm.value.fullName }},<br><br>
+          Your account is ready. Login: <strong>https://pgmanager.app/login</strong><br>
+          Email: {{ ownerForm.value.email }}<br>
+          
+          <ng-container *ngIf="lastGeneratedPassword; else activationMsg">
+            Temp password: <code>{{ lastGeneratedPassword }}</code><br><br>
+            <em class="ow-meta">Please change this password when you first log in.</em>
+          </ng-container>
+          
+          <ng-template #activationMsg>
+            Password: <code>[Your chosen password]</code><br><br>
+            <em class="ow-meta">You can log in using the password you set during registration.</em>
+          </ng-template>
+        </div>
+        
+        <div class="btn-row" style="margin-top:20px; gap: 12px">
+          <button class="btn btn-success" (click)="shareOnWhatsApp()">
+            <mat-icon style="font-size: 18px; width: 18px; height: 18px; vertical-align: middle;">chat</mat-icon>
+            Share via WhatsApp
+          </button>
+          <button class="btn" (click)="copyPassword(lastGeneratedPassword)" *ngIf="lastGeneratedPassword">Copy Password</button>
+          <button class="btn btn-primary" (click)="resetProvisioning()">Finish & Exit</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ PANE 2: OWNER PROFILE ════ -->
+  <div class="pane" *ngIf="activeTab === 2">
+    <div class="card">
+       <div class="card-hdr">Select Owner to View Profile</div>
+       <div class="frow" style="margin-bottom:0">
+          <select class="fselect" (change)="onOwnerSelect($event)">
+             <option value="">Choose an owner...</option>
+             <option *ngFor="let o of owners" [value]="o.userId" [selected]="o.userId === selectedOwner?.userId">{{ o.fullName }} ({{ o.email }})</option>
+          </select>
+       </div>
+    </div>
+
+    <div *ngIf="selectedOwner" class="animate-in">
+      <div class="card profile-header">
+        <div style="display:flex; align-items:center; gap:20px">
+          <div class="avatar av-blue" style="width:64px;height:64px;font-size:24px">{{ selectedOwner.fullName.charAt(0) }}</div>
+          <div style="flex:1">
+            <h2 style="margin:0">{{ selectedOwner.fullName }}</h2>
+            <div class="ow-meta">{{ selectedOwner.email }} <span *ngIf="selectedOwner.phone">· 📞 {{ selectedOwner.phone }}</span> · Joined {{ selectedOwner.createdAt | date }}</div>
+            <div style="margin-top:10px"><span class="badge" [ngClass]="'b-' + selectedOwner.status.toLowerCase()">{{ selectedOwner.status }}</span></div>
+          </div>
+          <div class="btn-col">
+            <button class="btn btn-success" (click)="shareOnWhatsApp()" *ngIf="selectedOwner.phone">
+               <mat-icon style="font-size: 16px; width: 16px; height: 16px; vertical-align: middle;">chat</mat-icon>
+               Share Activation
+            </button>
+            <button class="btn btn-primary" (click)="impersonate()">Impersonate Owner →</button>
+            <button class="btn" (click)="forceReset()">Force Password Reset</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="g2">
+        <div class="card">
+          <div class="card-hdr">Live PG stats</div>
+          <div class="stat-row" style="grid-template-columns: 1fr 1fr; margin-bottom:0">
+            <div class="stat"><div class="stat-v">{{ selectedOwnerStats?.roomsCount }}</div><div class="stat-l">Rooms</div></div>
+            <div class="stat"><div class="stat-v">{{ selectedOwnerStats?.tenantsCount }}</div><div class="stat-l">Tenants</div></div>
+            <div class="stat"><div class="stat-v">₹{{ (selectedOwnerStats?.collectedThisMonth || 0) / 1000 }}k</div><div class="stat-l">Collected</div></div>
+            <div class="stat"><div class="stat-v">{{ selectedOwnerStats?.openTicketsCount }}</div><div class="stat-l">Open Tickets</div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-hdr">Lifecycle timeline</div>
+          <div class="tl">
+            <div class="tl-item" *ngFor="let act of selectedOwnerTimeline">
+              <div class="tl-dot"></div>
+              <div class="tl-t">{{ act.description }}</div>
+              <div class="tl-s">{{ act.timestamp | date:'MMM d, h:mm a' }}</div>
+            </div>
+            <div *ngIf="selectedOwnerTimeline.length === 0" class="empty-state" style="padding:20px">No activity yet.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ PANE 3: HEALTH MONITOR ════ -->
+  <div class="pane" *ngIf="activeTab === 3">
+    <div class="page-hdr">
+      <div class="page-eye">Health Monitor</div>
+      <h1 class="page-title">Engagement health across all owners</h1>
+    </div>
+
+    <div class="card">
+      <div class="health-row" *ngFor="let owner of owners" (click)="viewProfile(owner)">
+        <div class="avatar">{{ owner.fullName.charAt(0) }}</div>
+        <div class="health-bar-wrap">
+          <div class="health-name">{{ owner.fullName }}</div>
+          <div class="prog"><div class="prog-f" [style.width.%]="owner.healthScore" [style.background]="getHealthColor(owner.healthScore)"></div></div>
+        </div>
+        <div class="health-right">
+          <span class="badge" [style.color]="getHealthColor(owner.healthScore)">{{ owner.healthScore }}% HEALTH</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" *ngIf="selectedOwner && selectedOwnerChecklist">
+      <div class="card-hdr">Onboarding progress — {{ selectedOwner.fullName }}</div>
+      <div class="chk-row"><span>Account provisioned by admin</span><span class="chk-done">✓ Done</span></div>
+      <div class="chk-row"><span>Welcome email delivered</span><span class="chk-done">✓ Done</span></div>
+      <div class="chk-row"><span>First login completed</span><span [class.chk-done]="selectedOwnerChecklist.firstLoginCompleted">{{ selectedOwnerChecklist.firstLoginCompleted ? '✓ Done' : '✗ Not done' }}</span></div>
+      <div class="chk-row"><span>Password changed from temporary</span><span [class.chk-done]="selectedOwnerChecklist.passwordChanged">{{ selectedOwnerChecklist.passwordChanged ? '✓ Done' : '✗ Not done' }}</span></div>
+      <div class="chk-row"><span>PG profile set up</span><span [class.chk-done]="selectedOwnerChecklist.profileSetup">{{ selectedOwnerChecklist.profileSetup ? '✓ Done' : '✗ Not done' }}</span></div>
+      <div class="chk-row"><span>First room added</span><span [class.chk-done]="selectedOwnerChecklist.firstRoomAdded">{{ selectedOwnerChecklist.firstRoomAdded ? '✓ Done' : '✗ Not done' }}</span></div>
+    </div>
+  </div>
+
+  <!-- ════ PANE 4: SUPPORT TOOLS ════ -->
+  <div class="pane" *ngIf="activeTab === 4">
+    <div class="page-hdr"><div class="page-eye">Support Tools</div><h1 class="page-title">Help owners when they're stuck</h1></div>
+
+    <div class="g2">
+      <div class="card">
+        <div class="card-hdr">Send direct message</div>
+        <form [formGroup]="messageForm" (ngSubmit)="onSendMessage()">
+          <div class="frow">
+            <label class="flabel">To</label>
+            <select class="fselect" formControlName="target">
+              <option value="selected" *ngIf="selectedOwner">{{ selectedOwner.fullName }} (Selected)</option>
+              <option value="all">All active owners</option>
+            </select>
+          </div>
+          <div class="frow"><label class="flabel">Message</label><textarea class="ftextarea" formControlName="message" placeholder="Hi, let us know if you need help..."></textarea></div>
+          <button class="btn btn-primary" [disabled]="messageForm.invalid">Send message →</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="card-hdr">Admin impersonation</div>
+        <p class="ow-meta">Login as any owner to see exactly what they see.</p>
+        <div *ngIf="selectedOwner" style="margin-top:20px">
+          <p>Currently selected: <strong>{{ selectedOwner.fullName }}</strong></p>
+          <button class="btn btn-primary" (click)="impersonate()">Start impersonation →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ PANE 5: OFFBOARDING ════ -->
+  <div class="pane" *ngIf="activeTab === 5">
+    <div class="page-hdr"><div class="page-eye danger">Offboarding</div><h1 class="page-title">End-of-lifecycle management</h1></div>
+    
+    <div class="card" style="background:#fff7ed; border-color:#fed7aa; color:#9a3412; font-size:13px; font-weight:600; padding:16px;">
+      Caution: Always consider Suspend (reversible) before Permanent Delete. Deletion erases all business data.
+    </div>
+
+    <div class="card danger-zone" *ngIf="selectedOwner">
+       <h3>Delete {{ selectedOwner.fullName }} Account?</h3>
+       <p class="ow-meta" style="margin-bottom:20px">This will permanently delete all rooms, tenants, payments, and history. Type <strong>CONFIRM</strong> to proceed.</p>
+       
+       <div class="frow">
+          <input class="finput" #confirmInput placeholder="Type CONFIRM here..." (input)="cdr.detectChanges()">
+       </div>
+
+       <div class="btn-row">
+         <button class="btn btn-warn" (click)="updateStatus('SUSPENDED')" *ngIf="selectedOwner.status === 'ACTIVE'">Suspend Account</button>
+         <button class="btn btn-danger" (click)="deletePermanently()" [disabled]="confirmInput.value !== 'CONFIRM'">Delete permanently →</button>
+       </div>
+    </div>
+    <div *ngIf="!selectedOwner" class="empty-state">Select an owner from the Overview first.</div>
+  </div>
+
+</div>

@@ -1,7 +1,10 @@
 package com.pgmanager.room.dto;
-import com.pgmanager.room.enums.RoomStatus;
-import com.pgmanager.room.enums.RoomType;
-import lombok.*;
+import com.pgmanager.common.enums.RoomStatus;
+import com.pgmanager.common.enums.RoomType;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 

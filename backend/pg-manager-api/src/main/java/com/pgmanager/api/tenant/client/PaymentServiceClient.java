@@ -2,7 +2,7 @@ package com.pgmanager.api.tenant.client;
 
 import com.pgmanager.api.payment.dto.PaymentRequest;
 import com.pgmanager.api.payment.dto.PaymentResponse;
-import com.pgmanager.api.payment.enums.PaymentMode;
+import com.pgmanager.common.enums.PaymentMode;
 import com.pgmanager.api.payment.service.PaymentService;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -81,3 +81,7 @@ public class PaymentServiceClient {
         private final BigDecimal outstanding;
     }
 }
+
+
+
+

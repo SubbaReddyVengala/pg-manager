@@ -1,7 +1,7 @@
 package com.pgmanager.api.payment.controller;
 
 import com.pgmanager.api.payment.dto.*;
-import com.pgmanager.api.payment.enums.PaymentStatus;
+import com.pgmanager.common.enums.PaymentStatus;
 import com.pgmanager.api.payment.service.PaymentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -84,3 +84,7 @@ public class PaymentController {
                 .body(pdf);
     }
 }
+
+
+
+

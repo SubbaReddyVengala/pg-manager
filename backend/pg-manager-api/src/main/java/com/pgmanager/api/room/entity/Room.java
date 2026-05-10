@@ -1,20 +1,33 @@
 package com.pgmanager.api.room.entity;
-import com.pgmanager.api.room.enums.RoomStatus;
-import com.pgmanager.api.room.enums.RoomType;
+import com.pgmanager.common.enums.RoomStatus;
+import com.pgmanager.common.enums.RoomType;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+import org.hibernate.annotations.Filter;
+import org.hibernate.annotations.FilterDef;
+import org.hibernate.annotations.ParamDef;
+import com.pgmanager.api.common.constant.TenantConstants;
+
+import com.pgmanager.api.common.entity.TenantEntityListener;
+
 @Entity
 @Table(name = "rooms")
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
+@EntityListeners(TenantEntityListener.class)
+@FilterDef(name = TenantConstants.TENANT_FILTER_NAME, parameters = @ParamDef(name = TenantConstants.TENANT_PARAMETER_NAME, type = Long.class))
+@Filter(name = TenantConstants.TENANT_FILTER_NAME, condition = TenantConstants.TENANT_COLUMN_NAME + " = :" + TenantConstants.TENANT_PARAMETER_NAME)
 public class Room {
 
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
+    private Long ownerId;
+
+    @Column(nullable = false)
     private String roomNumber;
 
     @Column(nullable = false)
@@ -56,3 +69,7 @@ public class Room {
         updatedAt = LocalDateTime.now();
     }
 }
+
+
+
+

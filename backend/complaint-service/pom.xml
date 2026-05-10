@@ -8,7 +8,7 @@
 		<version>3.5.11</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
-	<groupId>com.pgmanager  </groupId>
+	<groupId>com.pgmanager</groupId>
 	<artifactId>complaint-service</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>complaint-service</name>

@@ -12,6 +12,9 @@ public class PgSettings {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false, unique = true)
+    private Long userId;
+
     // --- PG Profile ---
     private String pgName;
     private String ownerName;
@@ -37,4 +40,5 @@ public class PgSettings {
     private int lateFeeAfterDays = 5;
     @Builder.Default
     private double lateFeeAmount = 50.0;
+    private String upiId;
 }

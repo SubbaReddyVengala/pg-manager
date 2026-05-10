@@ -38,8 +38,10 @@ import { RoomResponse } from '../../../shared/models/room.models';
       <mat-form-field appearance='outline' class='full-width'>
         <mat-label>Full Name</mat-label>
         <input matInput formControlName='fullName' placeholder='e.g. Ravi Kumar'/>
-        @if (f['fullName'].touched && f['fullName'].errors?.['required']) {
-          <mat-error>Full name is required</mat-error>
+        @if (f['fullName'].touched && f['fullName'].invalid) {
+          <mat-error *ngIf="f['fullName'].errors?.['required']">Full name is required</mat-error>
+          <mat-error *ngIf="f['fullName'].errors?.['pattern']">Letters and spaces only</mat-error>
+          <mat-error *ngIf="f['fullName'].errors?.['minlength']">Min 2 characters</mat-error>
         }
       </mat-form-field>
 
@@ -47,15 +49,18 @@ import { RoomResponse } from '../../../shared/models/room.models';
         <mat-form-field appearance='outline'>
           <mat-label>Phone</mat-label>
           <input matInput formControlName='phone' placeholder='10-digit number'/>
-          @if (f['phone'].touched && f['phone'].errors?.['pattern']) {
-            <mat-error>Enter valid 10-digit number</mat-error>
+          @if (f['phone'].touched && f['phone'].invalid) {
+            <mat-error *ngIf="f['phone'].errors?.['required']">Required</mat-error>
+            <mat-error *ngIf="f['phone'].errors?.['pattern']">10 digits required</mat-error>
           }
         </mat-form-field>
         <mat-form-field appearance='outline'>
           <mat-label>Email</mat-label>
           <input matInput formControlName='email' type='email'/>
-          @if (f['email'].touched && f['email'].errors?.['email']) {
-            <mat-error>Enter valid email</mat-error>
+          @if (f['email'].touched && f['email'].invalid) {
+            <mat-error *ngIf="f['email'].errors?.['required']">Required</mat-error>
+            <mat-error *ngIf="f['email'].errors?.['email']">Invalid email</mat-error>
+            <mat-error *ngIf="f['email'].errors?.['maxlength']">Max 150 chars</mat-error>
           }
         </mat-form-field>
       </div>
@@ -80,10 +85,16 @@ import { RoomResponse } from '../../../shared/models/room.models';
           <input matInput [matDatepicker]='picker' formControlName='moveInDate'/>
           <mat-datepicker-toggle matIconSuffix [for]='picker'></mat-datepicker-toggle>
           <mat-datepicker #picker></mat-datepicker>
+          @if (f['moveInDate'].touched && f['moveInDate'].invalid) {
+            <mat-error>Required</mat-error>
+          }
         </mat-form-field>
         <mat-form-field appearance='outline'>
-          <mat-label>Rent Due Day (1-28)</mat-label>
-          <input matInput type='number' formControlName='rentDueDay' min='1' max='28'/>
+          <mat-label>Rent Due Day (1-31)</mat-label>
+          <input matInput type='number' formControlName='rentDueDay' min='1' max='31'/>
+          @if (f['rentDueDay'].touched && f['rentDueDay'].invalid) {
+            <mat-error *ngIf="f['rentDueDay'].errors?.['min'] || f['rentDueDay'].errors?.['max']">1-31 only</mat-error>
+          }
         </mat-form-field>
       </div>
 
@@ -91,10 +102,18 @@ import { RoomResponse } from '../../../shared/models/room.models';
         <mat-form-field appearance='outline'>
           <mat-label>Monthly Rent (₹)</mat-label>
           <input matInput type='number' formControlName='monthlyRent'/>
+          @if (f['monthlyRent'].touched && f['monthlyRent'].invalid) {
+            <mat-error *ngIf="f['monthlyRent'].errors?.['required']">Required</mat-error>
+            <mat-error *ngIf="f['monthlyRent'].errors?.['min']">Min 0</mat-error>
+          }
         </mat-form-field>
         <mat-form-field appearance='outline'>
           <mat-label>Security Deposit (₹)</mat-label>
           <input matInput type='number' formControlName='securityDeposit'/>
+          @if (f['securityDeposit'].touched && f['securityDeposit'].invalid) {
+            <mat-error *ngIf="f['securityDeposit'].errors?.['required']">Required</mat-error>
+            <mat-error *ngIf="f['securityDeposit'].errors?.['min']">Min 0</mat-error>
+          }
         </mat-form-field>
       </div>
 
@@ -112,6 +131,7 @@ import { RoomResponse } from '../../../shared/models/room.models';
         <mat-form-field appearance='outline'>
           <mat-label>ID Number</mat-label>
           <input matInput formControlName='idNumber'/>
+          @if (f['idNumber'].hasError('maxlength')) { <mat-error>Max 50 chars</mat-error> }
         </mat-form-field>
       </div>
 
@@ -119,16 +139,19 @@ import { RoomResponse } from '../../../shared/models/room.models';
         <mat-form-field appearance='outline'>
           <mat-label>Emergency Contact Name</mat-label>
           <input matInput formControlName='emergencyContact'/>
+          @if (f['emergencyContact'].hasError('maxlength')) { <mat-error>Max 100 chars</mat-error> }
         </mat-form-field>
         <mat-form-field appearance='outline'>
           <mat-label>Emergency Phone</mat-label>
           <input matInput formControlName='emergencyPhone'/>
+          @if (f['emergencyPhone'].hasError('pattern')) { <mat-error>10 digits required</mat-error> }
         </mat-form-field>
       </div>
 
       <mat-form-field appearance='outline' class='full-width'>
         <mat-label>Permanent Address</mat-label>
         <textarea matInput formControlName='permanentAddress' rows='2'></textarea>
+        @if (f['permanentAddress'].hasError('maxlength')) { <mat-error>Max 500 chars</mat-error> }
       </mat-form-field>
 
       <!-- ACTIONS -->
@@ -181,19 +204,19 @@ export class TenantFormComponent implements OnInit {
   idTypes: IdProofType[] = ['AADHAAR','PAN','PASSPORT','VOTER_ID','DRIVING_LICENSE'];
 
   form = this.fb.group({
-    fullName:         ['', Validators.required],
-    phone:            ['', [Validators.required, Validators.pattern(/^[6-9]\d{9}$/)]],
-    email:            ['', [Validators.required, Validators.email]],
+    fullName:         ['', [Validators.required, Validators.minLength(2), Validators.maxLength(100), Validators.pattern('^[a-zA-Z ]*$')]],
+    phone:            ['', [Validators.required, Validators.pattern('^[0-9]{10}$')]],
+    email:            ['', [Validators.required, Validators.email, Validators.maxLength(150)]],
     roomId:           [null as number | null],
     moveInDate:       ['', Validators.required],
-    monthlyRent:      [null as number | null, [Validators.required, Validators.min(1)]],
+    monthlyRent:      [null as number | null, [Validators.required, Validators.min(0)]],
     securityDeposit:  [null as number | null, [Validators.required, Validators.min(0)]],
-    rentDueDay:       [1, [Validators.required, Validators.min(1), Validators.max(28)]],
+    rentDueDay:       [1, [Validators.required, Validators.min(1), Validators.max(31)]],
     idProofType:      ['AADHAAR' as IdProofType, Validators.required],
-    idNumber:         ['', Validators.required],
-    emergencyContact: ['', Validators.required],
-    emergencyPhone:   ['', Validators.required],
-    permanentAddress: ['', Validators.required],
+    idNumber:         ['', [Validators.maxLength(50)]],
+    emergencyContact: ['', [Validators.maxLength(100)]],
+    emergencyPhone:   ['', [Validators.pattern('^[0-9]{10}$')]],
+    permanentAddress: ['', [Validators.maxLength(500)]],
   });
 
   get f() { return this.form.controls; }

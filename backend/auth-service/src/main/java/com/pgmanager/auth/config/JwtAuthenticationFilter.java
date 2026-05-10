@@ -1,6 +1,6 @@
 package com.pgmanager.auth.config;
 import com.pgmanager.auth.repository.UserRepository;
-import com.pgmanager.auth.util.JwtUtil;
+import com.pgmanager.common.util.JwtUtil;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -34,7 +34,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (email != null &&
                     SecurityContextHolder.getContext().getAuthentication() == null) {
                 userRepository.findByEmail(email).ifPresent(user -> {
-                    if (jwtUtil.isTokenValid(token, user)) {
+                    if (jwtUtil.isTokenValid(token, user) && user.isEnabled()) {
                         var auth = new UsernamePasswordAuthenticationToken(
                                 user, null, user.getAuthorities());
                         SecurityContextHolder.getContext().setAuthentication(auth);

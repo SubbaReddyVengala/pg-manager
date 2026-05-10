@@ -1,10 +1,11 @@
 package com.pgmanager.maintenance.service;
 
 import com.pgmanager.maintenance.client.PaymentServiceClient;
+import com.pgmanager.maintenance.context.UserContext;
 import com.pgmanager.maintenance.dto.*;
 import com.pgmanager.maintenance.entity.GeneralExpense;
 import com.pgmanager.maintenance.entity.MaintenanceTicket;
-import com.pgmanager.maintenance.enums.MaintenanceStatus;
+import com.pgmanager.common.enums.MaintenanceStatus;
 import com.pgmanager.maintenance.mapper.MaintenanceMapper;
 import com.pgmanager.maintenance.repository.GeneralExpenseRepository;
 import com.pgmanager.maintenance.repository.MaintenanceTicketRepository;
@@ -30,12 +31,14 @@ public class MaintenanceServiceImpl implements MaintenanceService {
     @Override
     @Transactional
     public MaintenanceTicketResponse raiseTicket(MaintenanceTicketRequest req) {
+        Long userId = UserContext.getUserId();
         // Validate room exists
         if (!roomServiceClient.roomExists(req.getRoomNumber())) {
             throw new RuntimeException("Invalid Room: Room " + req.getRoomNumber() + " does not exist in the system.");
         }
 
         MaintenanceTicket ticket = MaintenanceTicket.builder()
+                .userId(userId)
                 .roomId(req.getRoomId())
                 .roomNumber(req.getRoomNumber())
                 .tenantId(req.getTenantId())
@@ -64,8 +67,9 @@ public class MaintenanceServiceImpl implements MaintenanceService {
     @Override
     @Transactional
     public MaintenanceTicketResponse startWork(Long ticketId) {
-        MaintenanceTicket ticket = ticketRepository.findById(ticketId)
-                .orElseThrow(() -> new RuntimeException("Ticket not found"));
+        Long userId = UserContext.getUserId();
+        MaintenanceTicket ticket = ticketRepository.findByIdAndUserId(ticketId, userId)
+                .orElseThrow(() -> new RuntimeException("Ticket not found or access denied"));
         ticket.setStatus(MaintenanceStatus.IN_PROGRESS);
         ticket.setStartedAt(LocalDateTime.now());
         return mapper.toResponse(ticketRepository.save(ticket));
@@ -74,8 +78,9 @@ public class MaintenanceServiceImpl implements MaintenanceService {
     @Override
     @Transactional
     public MaintenanceTicketResponse resolveTicket(Long ticketId, BigDecimal cost) {
-        MaintenanceTicket ticket = ticketRepository.findById(ticketId)
-                .orElseThrow(() -> new RuntimeException("Ticket not found"));
+        Long userId = UserContext.getUserId();
+        MaintenanceTicket ticket = ticketRepository.findByIdAndUserId(ticketId, userId)
+                .orElseThrow(() -> new RuntimeException("Ticket not found or access denied"));
         ticket.setStatus(MaintenanceStatus.RESOLVED);
         ticket.setResolvedAt(LocalDateTime.now());
         if (cost != null) ticket.setCost(cost);
@@ -84,18 +89,20 @@ public class MaintenanceServiceImpl implements MaintenanceService {
 
     @Override
     public List<MaintenanceTicketResponse> getTickets(MaintenanceStatus status) {
+        Long userId = UserContext.getUserId();
         List<MaintenanceTicket> tickets = (status != null) 
-                ? ticketRepository.findByStatus(status) 
-                : ticketRepository.findAll();
+                ? ticketRepository.findByUserIdAndStatus(userId, status) 
+                : ticketRepository.findByUserId(userId);
         return tickets.stream().map(mapper::toResponse).collect(Collectors.toList());
     }
 
     @Override
     public MaintenanceStatsResponse getStats() {
-        long open = ticketRepository.countByStatus(MaintenanceStatus.OPEN);
-        long inProgress = ticketRepository.countByStatus(MaintenanceStatus.IN_PROGRESS);
-        long resolved = ticketRepository.countByStatus(MaintenanceStatus.RESOLVED);
-        Double avgDays = ticketRepository.getAverageResolutionTimeInDays();
+        Long userId = UserContext.getUserId();
+        long open = ticketRepository.countByUserIdAndStatus(userId, MaintenanceStatus.OPEN);
+        long inProgress = ticketRepository.countByUserIdAndStatus(userId, MaintenanceStatus.IN_PROGRESS);
+        long resolved = ticketRepository.countByUserIdAndStatus(userId, MaintenanceStatus.RESOLVED);
+        Double avgDays = ticketRepository.getAverageResolutionTimeInDays(userId);
         
         return MaintenanceStatsResponse.builder()
                 .openCount(open)
@@ -108,10 +115,12 @@ public class MaintenanceServiceImpl implements MaintenanceService {
     @Override
     @Transactional
     public void recordExpense(GeneralExpenseRequest req) {
+        Long userId = UserContext.getUserId();
         if (req.getAmount() == null || req.getAmount().compareTo(java.math.BigDecimal.ZERO) <= 0) {
             throw new RuntimeException("Expense amount must be greater than zero.");
         }
         GeneralExpense expense = GeneralExpense.builder()
+                .userId(userId)
                 .category(req.getCategory())
                 .description(req.getDescription())
                 .amount(req.getAmount())
@@ -123,13 +132,15 @@ public class MaintenanceServiceImpl implements MaintenanceService {
 
     @Override
     public List<GeneralExpense> getExpenses(LocalDate month) {
+        Long userId = UserContext.getUserId();
         LocalDate start = month.withDayOfMonth(1);
         LocalDate end = month.withDayOfMonth(month.lengthOfMonth());
-        return expenseRepository.findByExpenseDateBetweenOrderByExpenseDateDesc(start, end);
+        return expenseRepository.findByUserIdAndExpenseDateBetween(userId, start, end);
     }
 
     @Override
     public NetProfitResponse getNetProfit(LocalDate month) {
+        Long userId = UserContext.getUserId();
         LocalDate start = month.withDayOfMonth(1);
         LocalDate end = month.withDayOfMonth(month.lengthOfMonth());
 
@@ -138,11 +149,11 @@ public class MaintenanceServiceImpl implements MaintenanceService {
         if (revenue == null) revenue = BigDecimal.ZERO;
 
         // Get costs from maintenance-service itself
-        BigDecimal generalExp = expenseRepository.sumExpensesBetween(start, end);
+        BigDecimal generalExp = expenseRepository.sumAmountByUserIdAndExpenseDateBetween(userId, start, end);
         if (generalExp == null) generalExp = BigDecimal.ZERO;
 
-        // Sum ticket costs (assuming tickets resolved this month)
-        BigDecimal ticketCosts = ticketRepository.findAll().stream()
+        // Sum ticket costs
+        BigDecimal ticketCosts = ticketRepository.findByUserId(userId).stream()
                 .filter(t -> t.getResolvedAt() != null && 
                              !t.getResolvedAt().toLocalDate().isBefore(start) && 
                              !t.getResolvedAt().toLocalDate().isAfter(end))

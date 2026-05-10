@@ -1,13 +1,19 @@
 package com.pgmanager.api.payment.scheduler;
 
-import com.pgmanager.api.payment.service.PaymentService;
+import com.pgmanager.api.payment.entity.RentPayment;
+import com.pgmanager.common.enums.PaymentStatus;
+import com.pgmanager.api.payment.repository.PaymentRepository;
+import com.pgmanager.api.payment.client.NotificationServiceClient;
+import com.pgmanager.api.payment.client.TenantServiceClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.math.BigDecimal;
 
 @Component
 @EnableScheduling
@@ -15,18 +21,50 @@ import java.util.List;
 @Slf4j
 public class RentDueScheduler {
 
-    private final PaymentService paymentService;
-    private final com.pgmanager.api.payment.repository.PaymentRepository paymentRepository;
-    private final com.pgmanager.api.payment.client.NotificationServiceClient notificationClient;
-    private final com.pgmanager.api.payment.client.TenantServiceClient tenantClient;
+    private final PaymentRepository paymentRepository;
+    private final NotificationServiceClient notificationClient;
+    private final TenantServiceClient tenantClient;
 
     // Runs at 00:00 on the 1st of every month — IST
     @Scheduled(cron = "0 0 0 1 * ?", zone = "Asia/Kolkata")
     public void generateMonthlyDues() {
-        LocalDate thisMonth = LocalDate.now().withDayOfMonth(1);
-        log.info("[Scheduler] Generating rent dues for {}", thisMonth);
-        int count = paymentService.generateDues(thisMonth);
-        log.info("[Scheduler] Generated {} dues for {}", count, thisMonth);
+        LocalDate firstOfMonth = LocalDate.now().withDayOfMonth(1);
+        log.info("[Scheduler] Generating rent dues for {}", firstOfMonth);
+        
+        List<TenantServiceClient.TenantInfo> activeTenants = tenantClient.getAllActiveTenantsIgnoreOwner();
+        int count = 0;
+        
+        for (TenantServiceClient.TenantInfo t : activeTenants) {
+            if (paymentRepository.findByOwnerIdAndTenantIdAndRentMonth(t.getOwnerId(), t.getId(), firstOfMonth).isPresent()) {
+                continue;
+            }
+            RentPayment due = RentPayment.builder()
+                    .ownerId(t.getOwnerId())
+                    .tenantId(t.getId())
+                    .tenantName(t.getFullName())
+                    .roomId(t.getRoomId())
+                    .roomNumber(t.getRoomNumber())
+                    .rentMonth(firstOfMonth)
+                    .rentAmount(t.getMonthlyRent())
+                    .amountPaid(BigDecimal.ZERO)
+                    .balance(t.getMonthlyRent())
+                    .status(PaymentStatus.PENDING)
+                    .build();
+            paymentRepository.save(due);
+            
+            notificationClient.send(NotificationServiceClient.NotificationRequest.builder()
+                .tenantId(t.getId())
+                .ownerId(t.getOwnerId())
+                .recipient(t.getEmail())
+                .subject("Rent Due — " + t.getFullName())
+                .amount(t.getMonthlyRent())
+                .message(String.format("Rent of ₹%s for %s is now due.", 
+                        t.getMonthlyRent(), firstOfMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy"))))
+                .type("OVERDUE")
+                .build());
+            count++;
+        }
+        log.info("[Scheduler] Generated {} dues for {}", count, firstOfMonth);
     }
 
     // Runs at 10:00 AM on the 5th of every month to send overdue alerts
@@ -35,25 +73,31 @@ public class RentDueScheduler {
         LocalDate firstOfMonth = LocalDate.now().withDayOfMonth(1);
         log.info("[Scheduler] Checking for overdue payments for {}", firstOfMonth);
         
-        List<com.pgmanager.api.payment.entity.RentPayment> pending = paymentRepository.findByRentMonthAndStatus(firstOfMonth, com.pgmanager.api.payment.enums.PaymentStatus.PENDING, org.springframework.data.domain.Pageable.unpaged()).getContent();
+        List<RentPayment> pending = paymentRepository.findAllByRentMonthAndStatus(firstOfMonth, PaymentStatus.PENDING);
         
-        for (com.pgmanager.api.payment.entity.RentPayment p : pending) {
+        for (RentPayment p : pending) {
             // Update status to OVERDUE
-            p.setStatus(com.pgmanager.api.payment.enums.PaymentStatus.OVERDUE);
+            p.setStatus(PaymentStatus.OVERDUE);
             paymentRepository.save(p);
             
             // Send notification
-            com.pgmanager.api.payment.client.TenantServiceClient.TenantInfo tenant = tenantClient.getTenant(p.getTenantId());
+            TenantServiceClient.TenantInfo tenant = tenantClient.getTenant(p.getTenantId());
             if (tenant != null) {
-                notificationClient.send(com.pgmanager.api.payment.client.NotificationServiceClient.NotificationRequest.builder()
+                notificationClient.send(NotificationServiceClient.NotificationRequest.builder()
                     .tenantId(tenant.getId())
+                    .ownerId(tenant.getOwnerId())
                     .recipient(tenant.getEmail())
                     .subject("Rent Overdue — " + tenant.getFullName())
+                    .amount(p.getRentAmount())
                     .message(String.format("₹%s is 5 days overdue for %s. Last reminder sent. Please pay immediately to avoid further penalties.", 
-                            p.getRentAmount(), firstOfMonth.format(java.time.format.DateTimeFormatter.ofPattern("MMMM yyyy"))))
+                            p.getRentAmount(), firstOfMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy"))))
                     .type("BOTH")
                     .build());
             }
         }
     }
 }
+
+
+
+

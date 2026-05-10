@@ -1,10 +1,10 @@
 package com.pgmanager.tenant.service;
-
+import com.pgmanager.common.enums.TenantStatus;
 import com.pgmanager.tenant.client.RoomServiceClient;
 import com.pgmanager.tenant.client.PaymentServiceClient;
+import com.pgmanager.tenant.context.UserContext;
 import com.pgmanager.tenant.dto.*;
 import com.pgmanager.tenant.entity.Tenant;
-import com.pgmanager.tenant.enums.TenantStatus;
 import com.pgmanager.tenant.repository.TenantRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,7 +18,6 @@ import org.springframework.web.client.RestTemplate;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.Period;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -28,6 +27,7 @@ public class TenantServiceImpl implements TenantService {
     private final TenantRepository  tenantRepository;
     private final RoomServiceClient roomClient;
     private final PaymentServiceClient paymentClient;
+    private final com.pgmanager.tenant.client.AuthServiceClient authClient;
     private final RestTemplate restTemplate;
 
     @Value("${payment-service.url}")
@@ -36,6 +36,9 @@ public class TenantServiceImpl implements TenantService {
     // ── Create Tenant ──────────────────────────────────────
     @Override
     public TenantResponse createTenant(TenantRequest req) {
+        Long userId = UserContext.getUserId();
+        String userEmail = UserContext.getUserEmail();
+
         if (tenantRepository.existsByEmail(req.getEmail())) {
             throw new RuntimeException("Email already registered: " + req.getEmail());
         }
@@ -50,6 +53,7 @@ public class TenantServiceImpl implements TenantService {
         }
 
         Tenant tenant = Tenant.builder()
+                .userId(userId)
                 .fullName(req.getFullName())
                 .phone(req.getPhone())
                 .email(req.getEmail())
@@ -68,6 +72,8 @@ public class TenantServiceImpl implements TenantService {
                 .build();
 
         tenant = tenantRepository.save(tenant);
+        
+        authClient.logEvent(userId, userEmail, "TENANT_ADDED", "Tenant " + tenant.getFullName() + " added");
 
         // Record initial payment if joining now
         if (tenant.getStatus() == TenantStatus.ACTIVE && tenant.getMonthlyRent() != null) {
@@ -80,18 +86,19 @@ public class TenantServiceImpl implements TenantService {
     // ── Get All Tenants (Paginated) ────────────────────────
     @Override
     public Page<TenantResponse> getAllTenants(TenantStatus status, String search, Pageable pageable) {
+        Long userId = UserContext.getUserId();
         boolean hasStatus = status != null;
         boolean hasSearch = search != null && !search.isBlank();
         Page<Tenant> tenants;
         
         if (hasStatus && hasSearch) {
-            tenants = tenantRepository.searchByStatus(status, search, pageable);
+            tenants = tenantRepository.searchByStatus(userId, status, search, pageable);
         } else if (hasStatus) {
-            tenants = tenantRepository.findByStatus(status, pageable);
+            tenants = tenantRepository.findByUserIdAndStatus(userId, status, pageable);
         } else if (hasSearch) {
-            tenants = tenantRepository.search(search, pageable);
+            tenants = tenantRepository.search(userId, search, pageable);
         } else {
-            tenants = tenantRepository.findAll(pageable);
+            tenants = tenantRepository.findByUserId(userId, pageable);
         }
         
         return tenants.map(this::toResponse);
@@ -245,6 +252,8 @@ public class TenantServiceImpl implements TenantService {
 
     @Override
     public List<TenantResponse> getTenantsByRoom(Long roomId) {
+        // Here we might need to verify if the room belongs to the user, 
+        // but room-service should handle its own isolation.
         return tenantRepository.findByRoomIdAndStatusIn(roomId, List.of(TenantStatus.ACTIVE, TenantStatus.PENDING))
                 .stream()
                 .map(this::toResponse)
@@ -254,21 +263,23 @@ public class TenantServiceImpl implements TenantService {
     // ── Stats ──────────────────────────────────────────────
     @Override
     public TenantStatsResponse getStats() {
+        Long userId = UserContext.getUserId();
         LocalDate now   = LocalDate.now();
         LocalDate start = now.withDayOfMonth(1);
         LocalDate end   = now.withDayOfMonth(now.lengthOfMonth());
         return TenantStatsResponse.builder()
-                .active(tenantRepository.countByStatus(TenantStatus.ACTIVE))
-                .pending(tenantRepository.countByStatus(TenantStatus.PENDING))
-                .inactive(tenantRepository.countByStatus(TenantStatus.INACTIVE))
-                .moveOutsThisMonth(tenantRepository.countMoveOutsBetween(start, end))
+                .active(tenantRepository.countByUserIdAndStatus(userId, TenantStatus.ACTIVE))
+                .pending(tenantRepository.countByUserIdAndStatus(userId, TenantStatus.PENDING))
+                .inactive(tenantRepository.countByUserIdAndStatus(userId, TenantStatus.INACTIVE))
+                .moveOutsThisMonth(tenantRepository.countMoveOutsBetween(userId, start, end))
                 .build();
     }
 
     // ── Private Helpers ────────────────────────────────────
     private Tenant findById(Long id) {
-        return tenantRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Tenant not found: " + id));
+        Long userId = UserContext.getUserId();
+        return tenantRepository.findByIdAndUserId(id, userId)
+                .orElseThrow(() -> new RuntimeException("Tenant not found or access denied: " + id));
     }
 
     private TenantResponse toResponse(Tenant t) {

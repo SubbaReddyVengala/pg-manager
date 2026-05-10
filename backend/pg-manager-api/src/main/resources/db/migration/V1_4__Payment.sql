@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS rent_payments (
     transaction_id   VARCHAR(100),   -- UPI ref / cheque no / bank txn id
     note             TEXT,
 
-    -- Status: PENDING → PARTIAL or PAID (or OVERDUE if past due date)
+    -- Status: PENDING -> PARTIAL or PAID (or OVERDUE if past due date)
     status           VARCHAR(20)     NOT NULL DEFAULT 'PENDING',
 
     -- Receipt

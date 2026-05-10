@@ -1,0 +1,47 @@
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASS}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 1
+      idle-timeout: 300000
+      max-lifetime: 1200000
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+
+# Security hardening
+jwt:
+  secret: ${JWT_SECRET}
+  expiration: 86400000 # 24 hours
+  refresh-expiration: 604800000 # 7 days
+
+# CORS Configuration
+app:
+  cors:
+    allowed-origins: ${ALLOWED_ORIGINS:https://pgmanager.app}
+
+# Logging - reduce noise in production
+logging:
+  level:
+    root: INFO
+    com.pgmanager.api: INFO
+    org.springframework.security: WARN
+    org.hibernate.SQL: ERROR

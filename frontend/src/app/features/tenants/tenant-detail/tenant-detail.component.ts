@@ -8,12 +8,13 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { TenantService } from '../tenant.service';
 import { RoomService } from '../../../core/services/room.service';
 import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
+import { AssignRoomModalComponent } from '../assign-room-modal.component';
 import { Subject, takeUntil } from 'rxjs';
 
 @Component({
   selector: 'app-tenant-detail',
   standalone: true,
-  imports: [CommonModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule, ConfirmDialogComponent],
+  imports: [CommonModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule, ConfirmDialogComponent, AssignRoomModalComponent],
   template: `
     <div class="detail-page">
       
@@ -38,6 +39,9 @@ import { Subject, takeUntil } from 'rxjs';
             <h1>Tenant Detail View — {{ tenant.fullName }}</h1>
           </div>
           <div class="actions">
+            <button *ngIf="tenant?.status === 'PENDING'" mat-flat-button class="btn-assign" (click)="onAssign()">
+              <mat-icon>meeting_room</mat-icon> Assign Room
+            </button>
             <button mat-flat-button class="btn-edit" (click)="onEdit()">
               <mat-icon>edit</mat-icon> Edit
             </button>
@@ -136,6 +140,15 @@ import { Subject, takeUntil } from 'rxjs';
         (confirm)="executeMoveOut()"
         (cancel)="showMoveOutConfirm = false">
       </app-confirm-dialog>
+
+      <!-- ASSIGN ROOM MODAL -->
+      <app-assign-room-modal
+        *ngIf="showAssignModal"
+        [tenant]="tenant"
+        [availableRooms]="availableRooms"
+        (confirm)="executeAssign($event)"
+        (cancel)="showAssignModal = false">
+      </app-assign-room-modal>
     </div>
   `,
   styles: [`
@@ -145,12 +158,6 @@ import { Subject, takeUntil } from 'rxjs';
       display: flex; flex-direction: column; align-items: center; 
       justify-content: center; height: 300px; color: #64748b; 
     }
-    .spinner {
-      width: 40px; height: 40px; border: 4px solid #e2e8f0;
-      border-top-color: #3b82f6; border-radius: 50%;
-      animation: spin 1s linear infinite; margin-bottom: 16px;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
 
     .error-wrap mat-icon { font-size: 48px; width: 48px; height: 48px; color: #ef4444; margin-bottom: 16px; }
     .error-wrap h3 { color: #1e293b; margin-bottom: 8px; }
@@ -162,6 +169,7 @@ import { Subject, takeUntil } from 'rxjs';
     .header h1 { margin: 0; font-size: 20px; font-weight: 800; color: #1e293b; }
     .actions { display: flex; gap: 12px; }
     .actions button { border-radius: 8px; font-weight: 700; font-size: 13px; text-transform: none; }
+    .btn-assign { background: #1e293b !important; color: white !important; }
     .btn-edit { background: #f59e0b !important; color: white !important; transition: background 0.2s; }
     .btn-edit:hover { background: #d97706 !important; }
 
@@ -200,34 +208,43 @@ import { Subject, takeUntil } from 'rxjs';
   `]
 })
 export class TenantDetailComponent implements OnInit, OnDestroy {
-  private route = inject(ActivatedRoute);
   private tenantService = inject(TenantService);
   private roomService = inject(RoomService);
+  private route = inject(ActivatedRoute);
   private router = inject(Router);
-  private cdr = inject(ChangeDetectorRef);
   private snackBar = inject(MatSnackBar);
+  private cdr = inject(ChangeDetectorRef);
   private destroy$ = new Subject<void>();
 
   tenant: any = null;
   loading = true;
   error = false;
-  currentId: number | null = null;
   showMoveOutConfirm = false;
+  showAssignModal = false;
+  availableRooms: any[] = [];
 
   ngOnInit(): void {
-    this.route.paramMap.pipe(takeUntil(this.destroy$)).subscribe(params => {
-      const id = params.get('id');
-      if (id) {
-        this.currentId = +id;
-        this.loadTenant(this.currentId);
-      }
-    });
+    const id = this.route.snapshot.paramMap.get('id');
+    if (id) {
+      this.loadTenant(+id);
+    }
+  }
 
-    // Wire up global refresh button
-    this.roomService.refresh$
+  loadTenant(id: number): void {
+    this.loading = true;
+    this.tenantService.getById(id)
       .pipe(takeUntil(this.destroy$))
-      .subscribe(() => {
-        if (this.currentId) this.loadTenant(this.currentId);
+      .subscribe({
+        next: (res) => {
+          this.tenant = res;
+          this.loading = false;
+          this.cdr.detectChanges();
+        },
+        error: () => {
+          this.loading = false;
+          this.error = true;
+          this.cdr.detectChanges();
+        }
       });
   }
 
@@ -236,28 +253,34 @@ export class TenantDetailComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  loadTenant(id: number): void {
-    this.loading = true;
-    this.error = false;
-    this.cdr.detectChanges(); 
-
-    this.tenantService.getById(id).subscribe({
-      next: (data) => {
-        this.tenant = data;
-        this.loading = false;
-        this.cdr.detectChanges(); 
-      },
-      error: (err) => {
-        console.error('Error loading tenant:', err);
-        this.loading = false;
-        this.error = true;
-        this.cdr.detectChanges();
-      }
-    });
+  goBack(): void {
+    this.router.navigate(['/dashboard/tenants']);
   }
 
   onEdit(): void {
-    this.router.navigate(['/dashboard/tenants'], { queryParams: { search: this.tenant.fullName, action: 'edit', id: this.tenant.id } });
+    this.router.navigate(['/dashboard/tenants'], { queryParams: { action: 'edit', id: this.tenant.id } });
+  }
+
+  onAssign(): void {
+    this.tenantService.getAvailableRooms().subscribe(rooms => {
+      this.availableRooms = rooms;
+      this.showAssignModal = true;
+      this.cdr.detectChanges();
+    });
+  }
+
+  executeAssign(roomId: number): void {
+    this.tenantService.assignRoom(this.tenant.id, roomId).subscribe({
+      next: () => {
+        this.snackBar.open('Room assigned successfully', 'OK', { duration: 3000 });
+        this.showAssignModal = false;
+        this.loadTenant(this.tenant.id); // Reload data
+      },
+      error: () => {
+        this.snackBar.open('Failed to assign room.', 'Close', { duration: 5000 });
+        this.showAssignModal = false;
+      }
+    });
   }
 
   onViewPayments(): void {
@@ -265,23 +288,24 @@ export class TenantDetailComponent implements OnInit, OnDestroy {
   }
 
   onMoveOut(): void {
+    if (this.tenant.outstanding > 0) {
+      this.snackBar.open(`Cannot move out — Outstanding dues: ₹${this.tenant.outstanding}`, 'Close', { duration: 5000 });
+      return;
+    }
     this.showMoveOutConfirm = true;
   }
 
   executeMoveOut(): void {
-    this.showMoveOutConfirm = false;
     this.tenantService.moveOut(this.tenant.id).subscribe({
       next: () => {
-        this.snackBar.open('Tenant moved out successfully.', 'OK', { duration: 3000 });
+        this.snackBar.open('Tenant moved out successfully', 'OK', { duration: 3000 });
+        this.showMoveOutConfirm = false;
         this.loadTenant(this.tenant.id);
       },
       error: (err) => {
-        console.error('Error moving out tenant:', err);
-        const msg = err.error?.message || 'Failed to process move out.';
-        this.snackBar.open(msg, 'Close', { duration: 5000 });
+        this.snackBar.open(err.error?.message || 'Failed to process move out.', 'Close', { duration: 5000 });
+        this.showMoveOutConfirm = false;
       }
     });
   }
-
-  goBack(): void { this.router.navigate(['/dashboard/tenants']); }
 }

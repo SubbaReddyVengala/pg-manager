@@ -1,7 +1,10 @@
 package com.pgmanager.room.dto;
-import com.pgmanager.room.enums.RoomStatus;
-import com.pgmanager.room.enums.RoomType;
-import jakarta.validation.constraints.*;
+import com.pgmanager.common.enums.RoomStatus;
+import com.pgmanager.common.enums.RoomType;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.DecimalMin;
 import lombok.Data;
 import java.math.BigDecimal;
 

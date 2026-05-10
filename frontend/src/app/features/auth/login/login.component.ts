@@ -67,10 +67,11 @@ import { LoginRequest } from '../../../shared/models/auth.models';
             <mat-error *ngIf="form.get('password')?.hasError('required')">
               Password is required
             </mat-error>
-            <mat-error *ngIf="form.get('password')?.hasError('minlength')">
-              Password must be at least 8 characters
-            </mat-error>
           </mat-form-field>
+
+          <div class="forgot-link">
+            <a routerLink="/auth/forgot-password">Forgot password?</a>
+          </div>
 
           <button mat-raised-button color="primary"
                   type="submit"
@@ -80,11 +81,20 @@ import { LoginRequest } from '../../../shared/models/auth.models';
             <span *ngIf="!loading">Sign In</span>
           </button>
 
+          <div class="divider">
+            <span>OR</span>
+          </div>
+
+          <button mat-stroked-button type="button" class="google-btn full-width" (click)="loginWithGoogle()">
+            <img src="/google-logo.svg" alt="Google">
+            Continue with Google
+          </button>
+
         </form>
 
         <p class="auth-footer">
-          New to PG Manager?
-          <a routerLink="/auth/register">Create an account</a>
+          Don't have an account?
+          <a routerLink="/auth/register">Sign up</a>
         </p>
 
       </div>
@@ -142,6 +152,32 @@ import { LoginRequest } from '../../../shared/models/auth.models';
     }
     .auth-footer a { color: #2471A3; font-weight: 600; text-decoration: none; }
     .auth-footer a:hover { text-decoration: underline; }
+
+    .forgot-link {
+      text-align: right; margin-bottom: 20px; margin-top: -10px;
+    }
+    .forgot-link a {
+      font-size: 13px; color: #666; text-decoration: none; font-weight: 600;
+    }
+    .forgot-link a:hover { color: #1B3A6B; text-decoration: underline; }
+
+    .divider {
+      display: flex; align-items: center; text-align: center;
+      margin: 20px 0; color: #888; font-size: 12px; font-weight: 600;
+    }
+    .divider::before, .divider::after {
+      content: ''; flex: 1; border-bottom: 1px solid #eee;
+    }
+    .divider span { padding: 0 10px; }
+
+    .google-btn {
+      width: 100%; height: 48px; display: flex; align-items: center;
+      justify-content: center; gap: 12px; border-radius: 8px !important;
+      font-weight: 600 !important; color: #1e293b !important;
+      border: 1px solid #e2e8f0 !important;
+    }
+    .google-btn img { width: 20px; height: 20px; }
+
     @media (max-width: 480px) {
       .auth-card { padding: 24px 20px; }
     }
@@ -166,6 +202,11 @@ export class LoginComponent {
     });
   }
 
+  loginWithGoogle(): void {
+    // Spring Boot OAuth2 default entry point
+    window.location.href = 'http://localhost:8080/api/v1/oauth2/authorization/google';
+  }
+
   onSubmit(): void {
     this.form.markAllAsTouched();
     if (this.form.invalid) return;
@@ -175,7 +216,22 @@ export class LoginComponent {
 
     const request: LoginRequest = this.form.value;
     this.auth.login(request).subscribe({
-      next: () => this.router.navigate(['/dashboard']),
+      next: (resp) => {
+        // 1. Handle First Login
+        if (resp.isFirstLogin) {
+          this.router.navigate(['/auth/reset-password']);
+          return;
+        }
+
+        // 2. Handle Super Admin
+        if (resp.role === 'SUPER_ADMIN') {
+          this.router.navigate(['/dashboard/admin']);
+          return;
+        }
+
+        // 3. Default
+        this.router.navigate(['/dashboard']);
+      },
       error: (err) => {
         this.errorMessage = err.error?.message ?? 'Invalid email or password.';
         this.loading = false;

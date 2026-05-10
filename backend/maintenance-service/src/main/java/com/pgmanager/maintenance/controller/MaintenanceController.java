@@ -2,7 +2,7 @@ package com.pgmanager.maintenance.controller;
 
 import com.pgmanager.maintenance.dto.*;
 import com.pgmanager.maintenance.entity.GeneralExpense;
-import com.pgmanager.maintenance.enums.MaintenanceStatus;
+import com.pgmanager.common.enums.MaintenanceStatus;
 import com.pgmanager.maintenance.service.MaintenanceService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

@@ -16,3 +16,7 @@ public class PaymentStatsResponse {
     private long       depositsCount;      // '6 Tenants'
     private double     growthRate;
 }
+
+
+
+

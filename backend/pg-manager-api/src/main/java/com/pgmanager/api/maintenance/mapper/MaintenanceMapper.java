@@ -8,3 +8,7 @@ import org.mapstruct.Mapper;
 public interface MaintenanceMapper {
     MaintenanceTicketResponse toResponse(MaintenanceTicket ticket);
 }
+
+
+
+

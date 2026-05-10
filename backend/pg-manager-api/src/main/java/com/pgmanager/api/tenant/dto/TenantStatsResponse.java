@@ -8,3 +8,7 @@ public class TenantStatsResponse {
     private long inactive;
     private long moveOutsThisMonth;  // move_out_date in current month
 }
+
+
+
+

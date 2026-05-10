@@ -2,7 +2,7 @@ package com.pgmanager.maintenance.service;
 
 import com.pgmanager.maintenance.dto.*;
 import com.pgmanager.maintenance.entity.GeneralExpense;
-import com.pgmanager.maintenance.enums.MaintenanceStatus;
+import com.pgmanager.common.enums.MaintenanceStatus;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;

@@ -1,5 +1,5 @@
 package com.pgmanager.tenant.dto;
-import com.pgmanager.tenant.enums.IdProofType;
+import com.pgmanager.common.enums.IdProofType;
 import jakarta.validation.constraints.*;
 import lombok.Data;
 import java.math.BigDecimal;

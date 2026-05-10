@@ -10,7 +10,9 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         return http
                 .csrf(c -> c.disable())
-                .authorizeHttpRequests(a -> a.anyRequest().permitAll())
+                .authorizeHttpRequests(a -> a
+                        .requestMatchers("/actuator/health").permitAll()
+                        .anyRequest().permitAll())
                 .build();
     }
 }

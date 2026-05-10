@@ -20,16 +20,20 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 
 import java.util.Arrays;
 import java.util.List;
 
 @Configuration
 @RequiredArgsConstructor
+@EnableMethodSecurity
 public class SecurityConfig {
 
     private final UserRepository userRepository;
     private final JwtUtil        jwtUtil;
+    private final RateLimitingFilter rateLimitingFilter;
+    private final OAuth2LoginSuccessHandler oauth2SuccessHandler;
 
     @Bean
     public UserDetailsService userDetailsService() {
@@ -57,10 +61,16 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder(12);
     }
 
+    @org.springframework.beans.factory.annotation.Value("${app.cors.allowed-origins:http://localhost:4200}")
+    private String allowedOrigins;
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:4200"));
+        
+        List<String> origins = Arrays.asList(allowedOrigins.split(","));
+        config.setAllowedOriginPatterns(origins);
+        
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With"));
         config.setAllowCredentials(true);
@@ -79,17 +89,27 @@ public class SecurityConfig {
                 .authenticationProvider(authenticationProvider())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
-                                "/auth/**",
-                                "/actuator/**",
+                                "/auth/login",
+                                "/auth/register",
+                                "/auth/refresh",
+                                "/actuator/health",
+                                "/actuator/info",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
+                .oauth2Login(oauth2 -> oauth2
+                        .successHandler(oauth2SuccessHandler)
+                )
+                .addFilterBefore(rateLimitingFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(
                         new JwtAuthenticationFilter(jwtUtil, userRepository),
                         UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
-
 }
+
+
+
+

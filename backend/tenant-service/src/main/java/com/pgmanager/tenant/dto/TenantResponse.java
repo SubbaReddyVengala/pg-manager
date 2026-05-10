@@ -1,6 +1,6 @@
 package com.pgmanager.tenant.dto;
-import com.pgmanager.tenant.enums.IdProofType;
-import com.pgmanager.tenant.enums.TenantStatus;
+import com.pgmanager.common.enums.IdProofType;
+import com.pgmanager.common.enums.TenantStatus;
 import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;

@@ -15,4 +15,10 @@ public class NotificationRequest {
     private String message;
     private String type; // EMAIL, WHATSAPP, BOTH, OVERDUE, MAINTENANCE, etc.
     private Long tenantId;
+    private Long ownerId;
+    private java.math.BigDecimal amount;
 }
+
+
+
+

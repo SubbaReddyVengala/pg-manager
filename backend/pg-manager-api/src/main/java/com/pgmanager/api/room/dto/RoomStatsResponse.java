@@ -11,3 +11,7 @@ public class RoomStatsResponse {
     private long   floorCount;
     private double occupancyRate;   // percentage e.g. 66.7
 }
+
+
+
+

@@ -43,3 +43,9 @@ management:
     web:
       exposure:
         include: health,info,metrics
+
+sentry:
+  dsn: ${SENTRY_DSN:https://placeholder@sentry.io/placeholder}
+  environment: ${SENTRY_ENVIRONMENT:production}
+  traces-sample-rate: 0.1
+  send-default-pii: false
