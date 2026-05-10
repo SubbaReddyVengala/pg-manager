@@ -2,7 +2,7 @@
 title: PG Manager API
 emoji: 🏠
 colorFrom: blue
-colorTo: slate
+colorTo: gray
 sdk: docker
 pinned: false
 ---
