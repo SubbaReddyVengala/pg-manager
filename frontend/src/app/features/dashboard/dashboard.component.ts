@@ -297,29 +297,26 @@ export class DashboardComponent implements OnInit {
     { label:'Settings',      icon:'settings',      route:'/dashboard/settings',   color:'#6B7280' },
   ];
 
-  get filteredMainNav(): NavItem[] {
-    if (this.auth.isSuperAdmin()) {
-      return [
-        { label:'Admin Panel', icon:'admin_panel_settings', route:'/dashboard/admin', color:'#3B82F6', exact:false }
-      ]; 
-    }
-    if (this.auth.isStaff()) {
-      return this.mainNav.filter(item => item.label !== 'Reports');
-    }
-    return this.mainNav;
-  }
+  filteredMainNav: NavItem[] = [];
+  filteredMoreNav: NavItem[] = [];
 
-  get filteredMoreNav(): NavItem[] {
+  private updateNavItems(): void {
     if (this.auth.isSuperAdmin()) {
-      return [];
-    }
-    if (this.auth.isStaff()) {
-      return this.moreNav.filter(item => 
+      this.filteredMainNav = [
+        { label:'Admin Panel', icon:'admin_panel_settings', route:'/dashboard/admin', color:'#3B82F6', exact:false }
+      ];
+      this.filteredMoreNav = [];
+    } else if (this.auth.isStaff()) {
+      this.filteredMainNav = this.mainNav.filter(item => item.label !== 'Reports');
+      this.filteredMoreNav = this.moreNav.filter(item => 
         item.label !== 'Expenses' && 
         item.label !== 'Settings'
       );
+    } else {
+      this.filteredMainNav = [...this.mainNav];
+      this.filteredMoreNav = [...this.moreNav];
     }
-    return this.moreNav;
+    this.cdr.detectChanges();
   }
 
   constructor(
@@ -334,6 +331,7 @@ export class DashboardComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.updateNavItems();
     this.checkScreenSize();
     this.userName    = this.auth.getUserName();
     this.userEmail   = this.auth.getCurrentUserEmail();

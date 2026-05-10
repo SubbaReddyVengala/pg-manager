@@ -101,7 +101,6 @@ export class AdminComponent implements OnInit {
     this.adminService.getPlatformStats().subscribe({
       next: (data) => {
         this.platformStats = data;
-        this.cdr.detectChanges();
       },
       error: () => {}
     });
@@ -113,7 +112,6 @@ export class AdminComponent implements OnInit {
       next: (data) => {
         this.owners = data;
         this.loading = false;
-        this.cdr.detectChanges();
       },
       error: () => this.loading = false
     });
@@ -123,7 +121,6 @@ export class AdminComponent implements OnInit {
   loadPendingRequests(): void {
     this.adminService.getPendingLimitRequests().subscribe(data => {
       this.pendingRequests = data;
-      this.cdr.detectChanges();
     });
   }
 
