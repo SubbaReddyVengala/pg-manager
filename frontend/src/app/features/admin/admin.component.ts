@@ -73,7 +73,6 @@ export class AdminComponent implements OnInit {
       dashboardEnabled: [true],
       paymentsEnabled: [true],
       reportsEnabled: [true],
-      whatsappEnabled: [true],
       maintenanceEnabled: [true],
       expensesEnabled: [false],
       bulkOpsEnabled: [false],
@@ -281,34 +280,6 @@ export class AdminComponent implements OnInit {
     if (!pass) return;
     navigator.clipboard.writeText(pass);
     this.snackBar.open('Copied to clipboard', 'OK', { duration: 2000 });
-  }
-
-  shareOnWhatsApp(): void {
-    if (!this.selectedOwner && this.provisionStep !== 4) return;
-    
-    // Determine user details based on context (Wizard vs Profile view)
-    const isWizard = this.provisionStep === 4;
-    const name = isWizard ? this.ownerForm.value.fullName : this.selectedOwner?.fullName;
-    const email = isWizard ? this.ownerForm.value.email : this.selectedOwner?.email;
-    const phone = isWizard ? this.ownerForm.value.phone : this.selectedOwner?.phone;
-    const pass = isWizard ? this.lastGeneratedPassword : this.selectedOwner?.tempPassword;
-    
-    let msg = `Hi ${name}, welcome to PG Manager! Your account is ready.\n\nLogin: https://pgmanager.app/login\nEmail: ${email}`;
-    
-    if (pass) {
-      msg += `\nTemp Password: ${pass}\n\nPlease change your password after logging in.`;
-    } else {
-      msg += `\n\nYou can now log in using the password you chose during registration.`;
-    }
-    
-    if (!phone) {
-      this.snackBar.open('No phone number available to share', 'OK');
-      return;
-    }
-
-    const cleanPhone = phone.replace(/[^0-9]/g, '');
-    const url = `https://wa.me/${cleanPhone.startsWith('91') ? cleanPhone : '91' + cleanPhone}?text=${encodeURIComponent(msg)}`;
-    window.open(url, '_blank');
   }
 
   getHealthColor(score: number): string {

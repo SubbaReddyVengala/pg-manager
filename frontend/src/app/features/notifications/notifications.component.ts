@@ -51,11 +51,8 @@ import { formatDistanceToNow } from 'date-fns';
             </div>
             <p class="notif-msg">{{ n.message }}</p>
             <div class="notif-actions" *ngIf="n.type === 'OVERDUE'">
-               <button mat-flat-button color="primary" class="action-btn whatsapp-btn" (click)="resendWhatsApp(n)">
-                 <mat-icon>chat</mat-icon> WhatsApp
-               </button>
-               <button mat-stroked-button class="action-btn email-btn" (click)="resendEmail(n)">
-                 <mat-icon>email</mat-icon> Email
+               <button mat-flat-button color="primary" class="action-btn email-btn" (click)="resendEmail(n)">
+                 <mat-icon>mail</mat-icon> Resend Email
                </button>
             </div>
           </div>
@@ -110,8 +107,7 @@ import { formatDistanceToNow } from 'date-fns';
 
     .notif-actions { display: flex; gap: 12px; margin-top: 16px; }
     .action-btn { height: 32px; font-size: 12px; font-weight: 600; }
-    .whatsapp-btn { background-color: #22c55e !important; }
-    .whatsapp-btn mat-icon, .email-btn mat-icon { font-size: 16px; width: 16px; height: 16px; }
+    .email-btn mat-icon { font-size: 16px; width: 16px; height: 16px; }
 
     .empty-state { text-align: center; padding: 100px 0; color: #94a3b8; }
     .empty-state mat-icon { font-size: 64px; width: 64px; height: 64px; opacity: 0.3; margin-bottom: 16px; }
@@ -219,17 +215,6 @@ export class NotificationsComponent implements OnInit, OnDestroy {
       case 'MOVE_OUT': return '#f5f3ff';
       default: return '#eff6ff';
     }
-  }
-
-  resendWhatsApp(n: NotificationAlert): void {
-    this.notificationService.sendNotification({
-      recipient: n.recipient,
-      message: n.message,
-      type: 'WHATSAPP',
-      tenantId: n.tenantId
-    }).subscribe(() => {
-      this.snackBar.open('WhatsApp reminder resent!', 'Close', { duration: 2000 });
-    });
   }
 
   resendEmail(n: NotificationAlert): void {

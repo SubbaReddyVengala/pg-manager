@@ -105,7 +105,7 @@ import { forkJoin } from 'rxjs';
                 <div class="setting-item">
                   <div class="item-info">
                     <p class="item-label">UPI ID for Deep Links</p>
-                    <p class="item-sub">Used for WhatsApp rent reminders</p>
+                    <p class="item-sub">Used for payment collection alerts</p>
                   </div>
                   <mat-form-field appearance="outline" style="width: 200px;">
                     <input matInput formControlName="upiId" placeholder="username@bank">
@@ -132,14 +132,6 @@ import { forkJoin } from 'rxjs';
             </mat-card-header>
             <mat-card-content>
               <form [formGroup]="notificationForm" class="settings-form">
-                <div class="toggle-item">
-                  <div class="item-info">
-                    <p class="item-label">WhatsApp Reminders</p>
-                    <p class="item-sub">Auto-send via WhatsApp API</p>
-                  </div>
-                  <mat-slide-toggle formControlName="whatsappReminders" color="primary"></mat-slide-toggle>
-                </div>
-
                 <div class="toggle-item">
                   <div class="item-info">
                     <p class="item-label">Email Notifications</p>
@@ -426,7 +418,6 @@ export class SettingsComponent implements OnInit {
     });
 
     this.notificationForm = this.fb.group({
-      whatsappReminders: [true],
       emailNotifications: [true],
       overdueAlerts: [true],
       maintenanceAlerts: [false],
@@ -567,7 +558,6 @@ export class SettingsComponent implements OnInit {
             address: settings.address
           });
           this.notificationForm.patchValue({
-            whatsappReminders: settings.whatsappReminders,
             emailNotifications: settings.emailNotifications,
             overdueAlerts: settings.overdueAlerts,
             maintenanceAlerts: settings.maintenanceAlerts,

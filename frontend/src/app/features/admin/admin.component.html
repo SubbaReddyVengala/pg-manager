@@ -167,7 +167,6 @@
             <div class="perm-row"><span>📊 Dashboard</span><input type="checkbox" formControlName="dashboardEnabled"></div>
             <div class="perm-row"><span>💰 Payments</span><input type="checkbox" formControlName="paymentsEnabled"></div>
             <div class="perm-row"><span>📄 Reports</span><input type="checkbox" formControlName="reportsEnabled"></div>
-            <div class="perm-row"><span>💬 WhatsApp</span><input type="checkbox" formControlName="whatsappEnabled"></div>
             <div class="perm-row"><span>🔧 Maintenance</span><input type="checkbox" formControlName="maintenanceEnabled"></div>
           </div>
           <div class="btn-row" style="margin-top: 20px">
@@ -198,10 +197,6 @@
         </div>
         
         <div class="btn-row" style="margin-top:20px; gap: 12px">
-          <button class="btn btn-success" (click)="shareOnWhatsApp()">
-            <mat-icon style="font-size: 18px; width: 18px; height: 18px; vertical-align: middle;">chat</mat-icon>
-            Share via WhatsApp
-          </button>
           <button class="btn" (click)="copyPassword(lastGeneratedPassword)" *ngIf="lastGeneratedPassword">Copy Password</button>
           <button class="btn btn-primary" (click)="resetProvisioning()">Finish & Exit</button>
         </div>
@@ -231,10 +226,6 @@
             <div style="margin-top:10px"><span class="badge" [ngClass]="'b-' + selectedOwner.status.toLowerCase()">{{ selectedOwner.status }}</span></div>
           </div>
           <div class="btn-col">
-            <button class="btn btn-success" (click)="shareOnWhatsApp()" *ngIf="selectedOwner.phone">
-               <mat-icon style="font-size: 16px; width: 16px; height: 16px; vertical-align: middle;">chat</mat-icon>
-               Share Activation
-            </button>
             <button class="btn btn-primary" (click)="impersonate()">Impersonate Owner →</button>
             <button class="btn" (click)="forceReset()">Force Password Reset</button>
           </div>
