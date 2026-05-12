@@ -3,6 +3,9 @@ package com.pgmanager.api.notification.service;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Primary;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import java.util.HashMap;
@@ -36,14 +39,14 @@ public class ResendEmailSender implements EmailSender {
             payload.put("subject", subject);
             payload.put("html", body);
 
-            // In a real implementation, you'd add Authorization header
-            // HttpHeaders headers = new HttpHeaders();
-            // headers.setBearerAuth(apiKey);
-            // headers.setContentType(MediaType.APPLICATION_JSON);
-            // HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
-            // restTemplate.postForEntity(url, entity, String.class);
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(apiKey);
+            headers.setContentType(MediaType.APPLICATION_JSON);
             
-            log.info("[RESEND] Email sent successfully (Mocked API call)");
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
+            restTemplate.postForEntity(url, entity, String.class);
+            
+            log.info("[RESEND] Email sent successfully via Resend API");
         } catch (Exception e) {
             log.error("[RESEND] Failed to send email: {}", e.getMessage());
         }

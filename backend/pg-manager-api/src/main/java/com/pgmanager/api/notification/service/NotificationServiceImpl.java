@@ -33,6 +33,9 @@ public class NotificationServiceImpl implements NotificationService {
             }
         }
         
+        // Fallback for system-level notifications if ownerId is still null
+        if (ownerId == null) ownerId = 0L;
+
         log.info("Sending notification: {} for owner: {}", request.getSubject(), ownerId);
         
         String type = request.getType();
@@ -51,10 +54,20 @@ public class NotificationServiceImpl implements NotificationService {
         
         notificationRepository.save(notification);
 
-        // Handle external email notifications based on settings
-        if (ownerId != null && request.getRecipient() != null) {
-            PgSettings settings = settingsService.getSettingsByOwnerId(ownerId);
-            if (settings.isEmailNotifications()) {
+        // Handle external email notifications
+        if (request.getRecipient() != null) {
+            boolean isCritical = request.getSubject() != null && 
+                                (request.getSubject().contains("Password") || 
+                                 request.getSubject().contains("Activated") || 
+                                 request.getSubject().contains("Verification"));
+
+            boolean shouldSend = isCritical;
+            if (!shouldSend && ownerId != 0L) {
+                PgSettings settings = settingsService.getSettingsByOwnerId(ownerId);
+                shouldSend = settings.isEmailNotifications();
+            }
+
+            if (shouldSend) {
                 emailSender.send(request.getRecipient(), request.getSubject(), request.getMessage());
             }
         }

@@ -39,6 +39,7 @@ public class AdminServiceImpl implements AdminService {
     private final NotificationRepository notificationRepository;
     private final UserActivityRepository userActivityRepository;
     private final LimitRequestRepository limitRequestRepository;
+    private final com.pgmanager.api.common.audit.AuditLogRepository auditLogRepository;
     private final com.pgmanager.api.notification.service.NotificationService notificationService;
     
     private final JwtUtil jwtUtil;
@@ -204,6 +205,7 @@ public class AdminServiceImpl implements AdminService {
                     .subject("Account Activated - Welcome to PG Manager")
                     .message(welcomeMsg)
                     .type("EMAIL")
+                    .ownerId(user.getOwnerId())
                     .build());
         }
 
@@ -265,13 +267,17 @@ public class AdminServiceImpl implements AdminService {
         roomRepository.deleteAllByOwnerId(ownerId);
         notificationRepository.deleteAllByOwnerId(ownerId);
         pgSettingsRepository.deleteAllByOwnerId(ownerId);
+        auditLogRepository.deleteAllByOwnerId(ownerId);
 
         // 2. Purge auth data
         ownerProfileRepository.deleteByUserId(userId);
         userActivityRepository.deleteAllByOwnerId(ownerId);
         
-        // 3. Delete all staff members associated with this owner
-        userRepository.deleteAll(userRepository.findByOwnerId(ownerId));
+        // 3. Delete all staff members associated with this owner (EXCEPT the owner themselves to avoid overlap)
+        List<User> staff = userRepository.findByOwnerId(ownerId).stream()
+                .filter(u -> !u.getId().equals(userId))
+                .collect(Collectors.toList());
+        userRepository.deleteAll(staff);
         
         // 4. Finally delete the owner user itself
         userRepository.delete(owner);

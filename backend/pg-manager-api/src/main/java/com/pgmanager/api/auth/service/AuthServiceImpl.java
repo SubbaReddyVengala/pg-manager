@@ -137,6 +137,7 @@ public class AuthServiceImpl implements AuthService {
                 .subject("Reset Your Password - PG Manager")
                 .message(message)
                 .type("EMAIL")
+                .ownerId(user.getOwnerId())
                 .build());
     }
 
