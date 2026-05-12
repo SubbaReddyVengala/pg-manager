@@ -18,6 +18,7 @@ import com.pgmanager.api.payment.repository.PaymentRepository;
 import com.pgmanager.api.room.repository.RoomRepository;
 import com.pgmanager.api.tenant.repository.TenantRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,6 +45,9 @@ public class AdminServiceImpl implements AdminService {
     
     private final JwtUtil jwtUtil;
     private final PasswordEncoder passwordEncoder;
+
+    @Value("${app.frontend.url:http://localhost:4200}")
+    private String frontendUrl;
 
     @Override
     @Transactional
@@ -195,7 +199,7 @@ public class AdminServiceImpl implements AdminService {
         if (oldStatus != AccountStatus.ACTIVE && newStatus == AccountStatus.ACTIVE) {
             String welcomeMsg = "Hi " + user.getFullName() + ",\n\n" +
                     "Your PG Manager account has been activated! You can now log in and start managing your property.\n\n" +
-                    "Login URL: https://pgmanager.app/login\n" +
+                    "Login URL: " + frontendUrl + "/auth/login\n" +
                     "Email: " + user.getEmail() + "\n\n" +
                     "If you registered yourself, please use your chosen password. If you were invited by an admin, please use the temporary password provided to you.\n\n" +
                     "Welcome aboard!";
