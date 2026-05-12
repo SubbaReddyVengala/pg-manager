@@ -10,6 +10,8 @@ import com.pgmanager.api.auth.repository.UserRepository;
 import com.pgmanager.api.auth.util.JwtUtil;
 import com.pgmanager.common.util.SecurityUtils;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -21,6 +23,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
@@ -29,6 +32,9 @@ public class AuthServiceImpl implements AuthService {
     private final JwtUtil jwtUtil;
     private final AuthenticationManager authenticationManager;
     private final com.pgmanager.api.notification.service.NotificationService notificationService;
+
+    @Value("${app.frontend.url:http://localhost:4200}")
+    private String frontendUrl;
 
     @Override
     @Transactional
@@ -117,6 +123,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public void initiatePasswordReset(String email) {
+        log.info("[AUTH] Initiating password reset for email: {}", email);
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("If your email is registered, you will receive a reset link shortly."));
         
@@ -125,12 +132,14 @@ public class AuthServiceImpl implements AuthService {
         user.setResetTokenExpiry(java.time.LocalDateTime.now().plusMinutes(15));
         userRepository.save(user);
 
-        String resetLink = "https://pgmanager.app/auth/reset-password?token=" + token;
+        String resetLink = frontendUrl + "/auth/reset-password?token=" + token;
         String message = "Hi " + user.getFullName() + ",\n\n" +
                 "We received a request to reset your PG Manager password.\n" +
                 "Click the link below to set a new password. This link expires in 15 minutes.\n\n" +
                 resetLink + "\n\n" +
                 "If you didn't request this, you can safely ignore this email.";
+
+        log.info("[AUTH] Sending reset email to {} with link: {}", user.getEmail(), resetLink);
 
         notificationService.sendNotification(com.pgmanager.api.notification.dto.NotificationRequest.builder()
                 .recipient(user.getEmail())
