@@ -14,6 +14,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @SpringBootApplication
 @EnableScheduling
 @EnableCaching
+@EnableAsync
 public class PgManagerApiApplication {
 
     public static void main(String[] args) {

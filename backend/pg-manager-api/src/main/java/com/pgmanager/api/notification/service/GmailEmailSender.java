@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Primary;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -20,15 +21,16 @@ public class GmailEmailSender implements EmailSender {
     private String senderEmail;
 
     @Override
+    @Async
     public void send(String to, String subject, String body) {
         if (senderEmail == null || senderEmail.isEmpty()) {
-            log.warn("[GMAIL] Sender email missing. Falling back to Mock behavior.");
+            log.warn("[GMAIL] Sender email (SPRING_MAIL_USERNAME) is missing in environment variables. Falling back to Mock behavior.");
             log.info("[MOCK EMAIL] To: {}, Subject: {}, Body: {}", to, subject, body);
             return;
         }
 
         try {
-            log.info("[GMAIL] Sending email to: {}", to);
+            log.info("[GMAIL] Attempting to send email to: {}", to);
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom(senderEmail);
             message.setTo(to);
@@ -36,9 +38,10 @@ public class GmailEmailSender implements EmailSender {
             message.setText(body);
             
             mailSender.send(message);
-            log.info("[GMAIL] Email sent successfully via Gmail SMTP");
+            log.info("[GMAIL] Email sent successfully to {} via Gmail SMTP", to);
         } catch (Exception e) {
-            log.error("[GMAIL] Failed to send email: {}", e.getMessage());
+            log.error("[GMAIL] CRITICAL ERROR sending email to {}: {}", to, e.getMessage());
+            log.debug("Stacktrace: ", e);
         }
     }
 }
