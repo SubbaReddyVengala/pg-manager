@@ -1,6 +1,6 @@
-import { Component, ChangeDetectorRef } from '@angular/core';
+import { Component, ChangeDetectorRef, OnInit, inject } from '@angular/core';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { Router, RouterLink, ActivatedRoute } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -184,12 +184,13 @@ import { environment } from '../../../../environments/environment';
     }
   `]
 })
-export class LoginComponent {
+export class LoginComponent implements OnInit {
 
   form: FormGroup;
   loading      = false;
   errorMessage = '';
   showPassword = false;
+  private route = inject(ActivatedRoute);
 
   constructor(
     private fb:     FormBuilder,
@@ -200,6 +201,18 @@ export class LoginComponent {
     this.form = this.fb.group({
       email:    ['', [Validators.required, Validators.email]],
       password: ['', [Validators.required, Validators.minLength(8)]],
+    });
+  }
+
+  ngOnInit(): void {
+    this.route.queryParams.subscribe(params => {
+      if (params['error'] === 'pending_approval') {
+        this.errorMessage = 'Your account is pending administrator approval. Please check back later.';
+      } else if (params['error'] === 'account_disabled') {
+        this.errorMessage = 'Your account has been disabled. Please contact support.';
+      } else if (params['error'] === 'oauth_failed') {
+        this.errorMessage = 'Google Sign-In failed. Please try again.';
+      }
     });
   }
 

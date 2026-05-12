@@ -288,7 +288,16 @@ public class AdminServiceImpl implements AdminService {
         User owner = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Owner not found"));
         
-        // Mock sending message
+        if ("EMAIL".equalsIgnoreCase(deliveryMode)) {
+            notificationService.sendNotification(com.pgmanager.api.notification.dto.NotificationRequest.builder()
+                    .recipient(owner.getEmail())
+                    .subject("Message from PG Manager Admin")
+                    .message(message)
+                    .type("EMAIL")
+                    .ownerId(owner.getOwnerId())
+                    .build());
+        }
+
         logActivity(owner.getId(), owner.getOwnerId(), "MESSAGE_SENT", 
                 "Admin sent message via " + deliveryMode + ": " + (message.length() > 30 ? message.substring(0, 27) + "..." : message));
     }
