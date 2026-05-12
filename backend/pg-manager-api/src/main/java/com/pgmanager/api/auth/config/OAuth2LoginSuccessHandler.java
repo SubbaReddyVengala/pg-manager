@@ -32,20 +32,38 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
         OAuth2User oauth2User = (OAuth2User) authentication.getPrincipal();
         String email = oauth2User.getAttribute("email");
+        String name = oauth2User.getAttribute("name");
         
         log.info("Google Login Success: {}", email);
         
         Optional<User> userOpt = userRepository.findByEmail(email);
+        User user;
+
         if (userOpt.isEmpty()) {
-            log.warn("Access denied for email: {}. User not found in whitelist.", email);
-            getRedirectStrategy().sendRedirect(request, response, frontendUrl + "/login?error=access_denied");
+            log.info("New Google user detected: {}. Creating pending account.", email);
+            user = User.builder()
+                    .email(email)
+                    .fullName(name != null ? name : email.split("@")[0])
+                    .passwordHash("OAUTH2_USER") // Placeholder
+                    .role(com.pgmanager.common.enums.Role.OWNER)
+                    .active(false)
+                    .status(com.pgmanager.common.enums.AccountStatus.PENDING)
+                    .isFirstLogin(false)
+                    .build();
+            user = userRepository.save(user);
+            user.setOwnerId(user.getId());
+            user = userRepository.save(user);
+            
+            // Redirect to login with pending message
+            getRedirectStrategy().sendRedirect(request, response, frontendUrl + "/auth/login?error=pending_approval");
             return;
         }
 
-        User user = userOpt.get();
+        user = userOpt.get();
         if (!user.isEnabled()) {
-            log.warn("Access denied for email: {}. Account is disabled.", email);
-            getRedirectStrategy().sendRedirect(request, response, frontendUrl + "/login?error=account_disabled");
+            log.warn("Access denied for email: {}. Account is disabled or pending.", email);
+            String errorType = user.getStatus() == com.pgmanager.common.enums.AccountStatus.PENDING ? "pending_approval" : "account_disabled";
+            getRedirectStrategy().sendRedirect(request, response, frontendUrl + "/auth/login?error=" + errorType);
             return;
         }
 

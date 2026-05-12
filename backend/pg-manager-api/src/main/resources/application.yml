@@ -52,6 +52,10 @@ spring:
             enable: true
             required: true
 
+app:
+  frontend:
+    url: ${APP_FRONTEND_URL:http://localhost:4200}
+
 server:
   port: 8080
   servlet:
