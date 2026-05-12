@@ -29,45 +29,50 @@ public class NotificationServiceImpl implements NotificationService {
             try {
                 ownerId = SecurityUtils.getCurrentOwnerId();
             } catch (Exception e) {
-                log.warn("Could not determine ownerId for notification: {}", request.getSubject());
+                // Ignore for system notifications
             }
         }
         
-        // Fallback for system-level notifications if ownerId is still null
         if (ownerId == null) ownerId = 0L;
 
-        log.info("Sending notification: {} for owner: {}", request.getSubject(), ownerId);
-        
         String type = request.getType();
         if (type == null) type = determineType(request.getSubject());
 
-        // Save to DB for dashboard alerts (always)
-        Notification notification = Notification.builder()
-                .ownerId(ownerId)
-                .title(request.getSubject())
-                .message(request.getMessage())
-                .type(type)
-                .recipient(request.getRecipient())
-                .tenantId(request.getTenantId())
-                .isRead(false)
-                .build();
-        
-        notificationRepository.save(notification);
+        // 1. Try to save to DB (but don't let it block the email)
+        try {
+            Notification notification = Notification.builder()
+                    .ownerId(ownerId)
+                    .title(request.getSubject())
+                    .message(request.getMessage())
+                    .type(type)
+                    .recipient(request.getRecipient())
+                    .tenantId(request.getTenantId())
+                    .isRead(false)
+                    .build();
+            notificationRepository.save(notification);
+        } catch (Exception e) {
+            log.warn("Failed to save notification to DB: {}. Proceeding with email.", e.getMessage());
+        }
 
-        // Handle external email notifications
+        // 2. Handle external email notifications
         if (request.getRecipient() != null) {
             boolean isCritical = request.getSubject() != null && 
                                 (request.getSubject().contains("Password") || 
                                  request.getSubject().contains("Activated") || 
-                                 request.getSubject().contains("Verification"));
+                                 request.getSubject().contains("Welcome"));
 
             boolean shouldSend = isCritical;
             if (!shouldSend && ownerId != 0L) {
-                PgSettings settings = settingsService.getSettingsByOwnerId(ownerId);
-                shouldSend = settings.isEmailNotifications();
+                try {
+                    PgSettings settings = settingsService.getSettingsByOwnerId(ownerId);
+                    shouldSend = settings.isEmailNotifications();
+                } catch (Exception e) {
+                    log.warn("Could not load settings for owner {}: {}", ownerId, e.getMessage());
+                }
             }
 
             if (shouldSend) {
+                log.info("Dispatching email to: {}", request.getRecipient());
                 emailSender.send(request.getRecipient(), request.getSubject(), request.getMessage());
             }
         }
